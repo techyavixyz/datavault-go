@@ -1,0 +1,242 @@
+{{define "body"}}
+<div id="notif-page" x-data="notifPage()" @keydown.escape.window="modal=false">
+
+  <div class="sh-hd">
+    <div class="sh-title">Notification Channels ({{len .Data}})</div>
+    <button class="btn btn-primary btn-sm" onclick="notifOpenNew()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      New Channel
+    </button>
+  </div>
+
+  {{if .Data}}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">
+  {{range .Data}}
+  <div class="card" style="padding:14px 16px">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        {{if eq .Type "smtp"}}
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 4l7 5 7-5"/></svg>
+        {{else if eq .Type "slack"}}
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2a2 2 0 1 0 0 4h2V4a2 2 0 0 0-2-2z"/><path d="M10 2a2 2 0 1 0 0 4"/><path d="M14 6a2 2 0 1 0-4 0v2h2a2 2 0 0 0 2-2z"/><path d="M14 10a2 2 0 1 0-4 0"/><path d="M10 14a2 2 0 1 0 0-4H8v2a2 2 0 0 0 2 2z"/><path d="M6 14a2 2 0 1 0 0-4"/><path d="M2 10a2 2 0 1 0 4 0V8H4a2 2 0 0 0-2 2z"/><path d="M2 6a2 2 0 1 0 4 0"/></svg>
+        {{else if eq .Type "googlechat"}}
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 2V4a1 1 0 0 1 1-1z"/></svg>
+        {{else}}
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        {{end}}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;font-size:13px">{{.Name}}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:1px;text-transform:uppercase;letter-spacing:.4px">{{.Type}}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          {{if .OnSuccess}}<span class="badge b-success" style="font-size:10px;padding:1px 7px">✓ Success</span>{{end}}
+          {{if .OnFailure}}<span class="badge b-failed" style="font-size:10px;padding:1px 7px">✗ Failure</span>{{end}}
+        </div>
+        {{if eq .Type "smtp"}}
+        <div style="font-size:11px;color:var(--tx3);margin-top:4px">To: {{index .Config "to"}}</div>
+        {{else if or (eq .Type "slack") (eq .Type "googlechat")}}
+        <div class="mono" style="font-size:10px;color:var(--tx3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{index .Config "webhook_url"}}</div>
+        {{else if eq .Type "webhook"}}
+        <div class="mono" style="font-size:10px;color:var(--tx3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{index .Config "method"}} {{index .Config "url"}}</div>
+        {{end}}
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;border-top:1px solid var(--br);padding-top:10px">
+      <button class="btn btn-ghost btn-xs" onclick="notifEdit('{{.ID}}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="notifDel('{{.ID}}','{{.Name}}')">Delete</button>
+    </div>
+  </div>
+  {{end}}
+  </div>
+  {{else}}
+  <div class="card">
+    <div class="empty">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><path d="M8 2a4 4 0 0 1 4 4v3l1.5 2.5H2.5L4 9V6a4 4 0 0 1 4-4z"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0"/></svg>
+      <div style="font-size:12px">No notification channels yet</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:4px">Add a channel to receive alerts when backups succeed or fail</div>
+    </div>
+  </div>
+  {{end}}
+
+  <!-- Modal -->
+  <div class="backdrop" x-show="modal" x-cloak @click.self="modal=false" style="display:none">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-hd">
+        <div class="modal-title" x-text="editId?'Edit Channel':'New Notification Channel'"></div>
+        <button class="btn btn-ghost btn-xs" @click="modal=false" style="padding:3px 6px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="fr">
+          <div class="fg" style="flex:2"><label>Channel Name</label><input x-model="f.name" placeholder="Slack Alerts"/></div>
+          <div class="fg" style="flex:1"><label>Type</label>
+            <select x-model="f.type">
+              <option value="slack">Slack</option>
+              <option value="googlechat">Google Chat</option>
+              <option value="smtp">Email (SMTP)</option>
+              <option value="webhook">Webhook</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Slack -->
+        <div x-show="f.type==='slack'">
+          <div class="fg"><label>Webhook URL</label>
+            <input x-model="f.webhook_url" placeholder="https://hooks.slack.com/services/…"/>
+            <div class="hint">Create at Slack → Apps → Incoming Webhooks</div>
+          </div>
+        </div>
+
+        <!-- Google Chat -->
+        <div x-show="f.type==='googlechat'">
+          <div class="fg"><label>Webhook URL</label>
+            <input x-model="f.webhook_url" placeholder="https://chat.googleapis.com/v1/spaces/…"/>
+            <div class="hint">Space → Apps → Manage webhooks</div>
+          </div>
+        </div>
+
+        <!-- SMTP -->
+        <div x-show="f.type==='smtp'">
+          <div class="fr">
+            <div class="fg" style="flex:2"><label>SMTP Host</label><input x-model="f.smtp_host" placeholder="smtp.gmail.com"/></div>
+            <div class="fg" style="flex:1"><label>Port</label><input x-model="f.smtp_port" placeholder="587"/></div>
+          </div>
+          <div class="fg"><label>TLS Mode</label>
+            <select x-model="f.smtp_tls">
+              <option value="starttls">STARTTLS (port 587)</option>
+              <option value="tls">TLS (port 465)</option>
+              <option value="none">None (plain)</option>
+            </select>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>Username</label><input x-model="f.smtp_username" placeholder="user@gmail.com"/></div>
+            <div class="fg"><label>Password / App Password</label><input type="password" x-model="f.smtp_password"/></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>From Address</label><input x-model="f.smtp_from" placeholder="alerts@yourdomain.com"/></div>
+            <div class="fg"><label>Sender Name <span style="color:var(--tx3)">(alias)</span></label><input x-model="f.smtp_sender_name" placeholder="DataVault"/></div>
+          </div>
+          <div class="fg"><label>To <span style="color:var(--tx3)">(comma-separated)</span></label><input x-model="f.smtp_to" placeholder="ops@yourdomain.com"/></div>
+        </div>
+
+        <!-- Generic Webhook -->
+        <div x-show="f.type==='webhook'">
+          <div class="fg"><label>URL</label><input x-model="f.webhook_url" placeholder="https://your-service.com/hook"/></div>
+          <div class="fg"><label>Method</label>
+            <select x-model="f.webhook_method">
+              <option value="POST">POST (sends JSON body with "text" field)</option>
+              <option value="GET">GET</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Triggers -->
+        <div style="display:flex;gap:20px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
+            <input type="checkbox" x-model="f.on_success" style="width:auto"/>
+            <span>Notify on <strong>success</strong></span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px">
+            <input type="checkbox" x-model="f.on_failure" style="width:auto"/>
+            <span>Notify on <strong>failure</strong></span>
+          </label>
+        </div>
+
+        <div x-show="err" class="hint" style="color:var(--er);margin-top:8px" x-text="err"></div>
+        <div x-show="testResult" style="margin-top:8px;padding:8px 10px;border-radius:var(--r);font-size:12px"
+          :style="testOk?'background:var(--ok-dim,rgba(63,185,80,.08));color:var(--ok)':'background:var(--er-dim,rgba(248,81,73,.08));color:var(--er)'"
+          x-text="testResult"></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" @click="modal=false">Cancel</button>
+        <button class="btn btn-secondary" @click="test()" :disabled="busy||testing" style="margin-left:auto;margin-right:8px">
+          <span x-show="testing" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="testing?'Sending…':'Test'"></span>
+        </button>
+        <button class="btn btn-primary" @click="save()" :disabled="busy">
+          <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="busy?'Saving…':'Save Channel'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function notifPage(){
+  const blank={name:'',type:'slack',on_success:true,on_failure:true,
+    webhook_url:'',webhook_method:'POST',
+    smtp_host:'',smtp_port:'587',smtp_tls:'starttls',smtp_username:'',smtp_password:'',smtp_from:'',smtp_sender_name:'',smtp_to:''};
+  return{
+    modal:false,busy:false,testing:false,err:'',testResult:'',testOk:false,editId:null,f:{...blank},
+    openNew(){this.f={...blank};this.editId=null;this.err='';this.testResult='';this.modal=true;},
+    openEdit(item){
+      const f={...blank,...item,
+        webhook_url:item.config?.webhook_url||'',
+        webhook_method:item.config?.method||'POST',
+        smtp_host:item.config?.host||'',
+        smtp_port:item.config?.port||'587',
+        smtp_tls:item.config?.tls||'starttls',
+        smtp_username:item.config?.username||'',
+        smtp_password:item.config?.password||'',
+        smtp_from:item.config?.from||'',
+        smtp_sender_name:item.config?.sender_name||'',
+        smtp_to:item.config?.to||''};
+      this.f=f;this.editId=item.id;this.err='';this.testResult='';this.modal=true;
+    },
+    buildConfig(){
+      if(this.f.type==='smtp'){
+        return{host:this.f.smtp_host,port:this.f.smtp_port,tls:this.f.smtp_tls,
+          username:this.f.smtp_username,password:this.f.smtp_password,
+          from:this.f.smtp_from,sender_name:this.f.smtp_sender_name,to:this.f.smtp_to};
+      }
+      if(this.f.type==='webhook'){
+        return{url:this.f.webhook_url,method:this.f.webhook_method};
+      }
+      return{webhook_url:this.f.webhook_url};
+    },
+    buildBody(){
+      return{name:this.f.name,type:this.f.type,
+        on_success:this.f.on_success,on_failure:this.f.on_failure,
+        config:this.buildConfig()};
+    },
+    async test(){
+      this.testing=true;this.testResult='';this.err='';
+      try{
+        await apiFetch('/notifications/test',{method:'POST',body:this.buildBody()});
+        this.testResult='✓ Test message sent successfully — check your channel.';
+        this.testOk=true;
+      }catch(e){
+        this.testResult='✗ '+e.message;
+        this.testOk=false;
+      }finally{this.testing=false;}
+    },
+    async save(){
+      if(!this.f.name.trim()){this.err='Name required';return;}
+      this.busy=true;this.err='';
+      try{
+        if(this.editId) await apiFetch(`/notifications/${this.editId}`,{method:'PUT',body:this.buildBody()});
+        else            await apiFetch('/notifications',{method:'POST',body:this.buildBody()});
+        this.modal=false;location.reload();
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    }
+  };
+}
+
+function notifOpenNew(){
+  const pg=Alpine.$data(document.getElementById('notif-page'));
+  if(pg) pg.openNew();
+}
+async function notifEdit(id){
+  try{
+    const item=await apiFetch(`/notifications/${id}`);
+    Alpine.$data(document.getElementById('notif-page')).openEdit(item);
+  }catch(e){console.error(e);}
+}
+function notifDel(id,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  apiFetch(`/notifications/${id}`,{method:'DELETE'}).then(()=>location.reload());
+}
+</script>
+{{end}}

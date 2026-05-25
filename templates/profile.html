@@ -1,0 +1,149 @@
+{{template "base.html" .}}
+{{define "body"}}
+<style>
+[x-cloak]{display:none!important}
+.profile-card{background:#fff;border:1px solid var(--br);border-radius:12px;padding:28px;max-width:520px}
+.field-row{margin-bottom:20px}
+.field-row label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px;letter-spacing:.1px}
+.field-row input{width:100%;padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;color:var(--tx1);outline:none;background:var(--bg);transition:border-color .15s}
+.field-row input:focus{border-color:#dc2626;background:#fff;box-shadow:0 0 0 3px rgba(220,38,38,.08)}
+.field-row input:disabled{color:var(--tx3);cursor:default}
+.field-row .hint{font-size:11.5px;color:var(--tx3);margin-top:5px}
+.role-pill{display:inline-flex;align-items:center;padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:600}
+.role-super{background:#fef3c7;color:#92400e}
+.role-admin{background:#dbeafe;color:#1e40af}
+.role-normal{background:#f3f4f6;color:#6b7280}
+.section-title{font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--br)}
+.ok-banner{background:#f0fdf4;border:1.5px solid #bbf7d0;color:#166534;border-radius:8px;padding:10px 14px;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.err-banner{background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:18px}
+</style>
+
+<div x-data="profilePage()" style="max-width:560px">
+
+  <!-- Identity card -->
+  <div class="profile-card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+      <div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0"
+           :style="role==='super_admin'?'background:#dc2626':role==='admin'?'background:#3b82f6':'background:#9ca3af'">
+        <span x-text="username.charAt(0).toUpperCase()"></span>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--tx1)" x-text="username"></div>
+        <div style="margin-top:5px">
+          <span class="role-pill" :class="role==='super_admin'?'role-super':role==='admin'?'role-admin':'role-normal'"
+                x-text="role==='super_admin'?'Super Admin':role==='admin'?'Admin':'Normal'"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Account Details</div>
+
+    <div x-show="ok" class="ok-banner" x-cloak>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+      <span x-text="ok"></span>
+    </div>
+    <div x-show="err" class="err-banner" x-cloak>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10.5v.5"/></svg>
+      <span x-text="err"></span>
+    </div>
+
+    <div class="field-row">
+      <label>Username</label>
+      <input type="text" :value="username" disabled/>
+      <div class="hint">Username cannot be changed.</div>
+    </div>
+
+    <div class="field-row">
+      <label>Email Address</label>
+      <input type="email" x-model="email" placeholder="you@example.com"/>
+      <div class="hint">Used for password recovery via the "Forgot credentials" flow.</div>
+    </div>
+
+    <button class="btn-primary" @click="saveEmail()" :disabled="emailBusy" style="width:auto;padding:9px 22px">
+      <span x-show="!emailBusy">Save Email</span>
+      <span x-show="emailBusy">Saving…</span>
+    </button>
+  </div>
+
+  <!-- Change password card -->
+  <div class="profile-card">
+    <div class="section-title">Change Password</div>
+
+    <div x-show="pwOk" class="ok-banner" x-cloak>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+      Password updated successfully.
+    </div>
+    <div x-show="pwErr" class="err-banner" x-cloak>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10.5v.5"/></svg>
+      <span x-text="pwErr"></span>
+    </div>
+
+    <div class="field-row">
+      <label>Current Password</label>
+      <input type="password" x-model="currentPw" placeholder="Enter your current password" autocomplete="current-password"/>
+    </div>
+    <div class="field-row">
+      <label>New Password</label>
+      <input type="password" x-model="newPw" placeholder="At least 6 characters" autocomplete="new-password"/>
+    </div>
+    <div class="field-row">
+      <label>Confirm New Password</label>
+      <input type="password" x-model="confirmPw" placeholder="Repeat new password" autocomplete="new-password" @keydown.enter="savePassword()"/>
+    </div>
+
+    <button class="btn-primary" @click="savePassword()" :disabled="pwBusy" style="width:auto;padding:9px 22px">
+      <span x-show="!pwBusy">Update Password</span>
+      <span x-show="pwBusy">Updating…</span>
+    </button>
+  </div>
+
+</div>
+
+<script>
+const _profileData = {{.Data | jsonStr}};
+
+function profilePage() {
+  return {
+    username: _profileData.username || '',
+    email:    _profileData.email    || '',
+    role:     _profileData.role     || 'normal',
+    ok: '', err: '', emailBusy: false,
+    currentPw: '', newPw: '', confirmPw: '',
+    pwOk: false, pwErr: '', pwBusy: false,
+
+    async saveEmail() {
+      this.ok = ''; this.err = '';
+      this.emailBusy = true;
+      try {
+        await apiFetch('/profile', {method:'PUT', body:{email: this.email.trim()}});
+        this.ok = 'Email saved successfully.';
+      } catch(e) {
+        this.err = e.message;
+      } finally {
+        this.emailBusy = false;
+      }
+    },
+
+    async savePassword() {
+      this.pwOk = false; this.pwErr = '';
+      if (!this.currentPw) { this.pwErr = 'Enter your current password'; return; }
+      if (!this.newPw)     { this.pwErr = 'Enter a new password'; return; }
+      if (this.newPw !== this.confirmPw) { this.pwErr = 'Passwords do not match'; return; }
+      this.pwBusy = true;
+      try {
+        await apiFetch('/profile', {method:'PUT', body:{
+          current_password: this.currentPw,
+          new_password:     this.newPw
+        }});
+        this.pwOk = true;
+        this.currentPw = ''; this.newPw = ''; this.confirmPw = '';
+      } catch(e) {
+        this.pwErr = e.message;
+      } finally {
+        this.pwBusy = false;
+      }
+    }
+  };
+}
+</script>
+{{end}}

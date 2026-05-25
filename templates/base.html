@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DataVault</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+<link rel="stylesheet" href="/static/style.css"/>
+<script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo-wrap">
+      <div class="logo-mark">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2l5 3v6l-5 3-5-3V5z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">DataVault</div>
+        <div class="logo-sub">BACKUP MANAGER</div>
+      </div>
+    </div>
+    <div class="nav">
+      <div class="nav-sect">Overview</div>
+      {{navItem . "dashboard" "/dashboard" "grid" "Dashboard"}}
+      <div class="nav-sect">Configuration</div>
+      {{navItem . "credentials" "/credentials" "lock" "Credentials"}}
+      {{navItem . "sources" "/sources" "db" "Database Sources"}}
+      {{navItem . "restore_targets" "/restore_targets" "target" "Restore Targets"}}
+      {{navItem . "destinations" "/destinations" "storage" "Storage Destinations"}}
+      <div class="nav-sect">Operations</div>
+      {{navItem . "backups" "/backups" "backup" "Backup Jobs"}}
+      {{navItem . "cronjobs" "/cronjobs" "clock" "Cron Jobs"}}
+      {{navItem . "restores" "/restores" "refresh" "Restore Jobs"}}
+      {{navItem . "explorer" "/explorer" "folder" "File Explorer"}}
+      {{navItem . "retention" "/retention" "trash" "Retention Policies"}}
+      {{navItem . "notifications" "/notifications" "bell" "Notifications"}}
+      {{if eq .UserRole "super_admin"}}
+      <div class="nav-sect">Administration</div>
+      {{navItem . "users" "/users" "users" "User Management"}}
+      {{navItem . "settings" "/settings" "settings" "Settings"}}
+      {{end}}
+    </div>
+    <div style="padding:12px 14px;border-top:1px solid var(--br)">
+      {{if .Username}}
+      <a href="/profile" hx-get="/profile" hx-target="#content" hx-push-url="true" hx-swap="innerHTML" style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:8px 10px;background:#f9fafb;border-radius:9px;border:1px solid var(--br);text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s" onmouseover="this.style.borderColor='#fecaca';this.style.background='#fef2f2'" onmouseout="this.style.borderColor='var(--br)';this.style.background='#f9fafb'">
+        <div style="width:32px;height:32px;border-radius:50%;background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;line-height:1">{{initial .Username}}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:12px;font-weight:600;color:var(--tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3">{{.Username}}</div>
+          <div style="font-size:10.5px;color:#dc2626;font-weight:500;margin-top:1px;line-height:1.3">{{if eq .UserRole "super_admin"}}Super Admin{{else if eq .UserRole "admin"}}Admin{{else}}Normal{{end}}</div>
+        </div>
+      </a>
+      {{end}}
+      <div style="font-size:10px;color:var(--tx3);font-weight:500;margin-bottom:3px">Go Edition</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--tx2);margin-bottom:10px">v2.0.0-go</div>
+      <button onclick="signOut()" style="width:100%;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--br);border-radius:7px;background:transparent;color:var(--tx2);font-size:12px;font-weight:500;cursor:pointer;transition:background .15s,color .15s" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626';this.style.borderColor='#fecaca'" onmouseout="this.style.background='transparent';this.style.color='var(--tx2)';this.style.borderColor='var(--br)'">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3"/><path d="M10 11l4-3-4-3"/><path d="M6 8h8"/></svg>
+        Sign out
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">{{.Title}}</div>
+        <div class="page-sub">{{.Sub}}</div>
+      </div>
+    </div>
+    <div class="content" id="content">
+      {{template "body" .}}
+    </div>
+  </div>
+</div>
+
+<script>
+// SVG icon helper used in templates
+const ICONS = {
+  grid:    '<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>',
+  lock:    '<rect x="3" y="7" width="10" height="8" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/>',
+  db:      '<ellipse cx="8" cy="5" rx="5" ry="2.5"/><path d="M3 5v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V5"/><path d="M3 8v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V8"/>',
+  storage: '<rect x="2" y="3" width="12" height="4" rx="1"/><rect x="2" y="9" width="12" height="4" rx="1"/>',
+  backup:  '<path d="M8 3v9M4 9l4 4 4-4"/><path d="M2 13h12"/>',
+  refresh: '<path d="M2.5 8a5.5 5.5 0 1 0 .75-2.75"/><path d="M2 3.5l.75 2.75 2.75-.75"/>',
+  folder:  '<path d="M2 4h4.5l1.5 2H14v8H2z"/>',
+  clock:   '<circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/>',
+  plus:    '<path d="M8 3v10M3 8h10"/>',
+  x:       '<path d="M12 4L4 12M4 4l8 8"/>',
+  edit:    '<path d="M11.5 2.5a1.5 1.5 0 0 1 2.12 2.12L5.25 13l-3.5.5.5-3.5z"/>',
+  trash:   '<path d="M3 5h10M8 5V3M5.5 5l.5 8h4l.5-8"/>',
+  bolt:    '<path d="M10 2L5 9h4l-3 5 8-8h-5l2-4z"/>',
+  log:     '<rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h4"/>',
+};
+function ico(n,s=14){
+  return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;
+}
+
+// Shared fetch helper
+async function apiFetch(path, opts={}) {
+  const r = await fetch('/api'+path, {
+    headers:{'Content-Type':'application/json'},
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({detail:'Error'}));
+    throw new Error(e.detail || 'Request failed');
+  }
+  return r.json();
+}
+
+// Sign out
+async function signOut() {
+  await fetch('/api/auth/signout', {method:'POST'}).catch(()=>{});
+  window.location.href = '/signin';
+}
+
+// Refresh a section via HTMX
+function refresh(url, target) {
+  htmx.ajax('GET', url, {target, swap:'innerHTML'});
+}
+
+// Tear down Alpine before HTMX swaps, reinit after — stop the mutation observer
+// so Alpine's own auto-init doesn't race with our manual initTree call.
+document.addEventListener('htmx:beforeSwap', function(e) {
+  if (typeof Alpine === 'undefined') return;
+  Alpine.stopObservingMutations();
+  var target = e.detail.target;
+  if (target) {
+    target.querySelectorAll('[x-data]').forEach(function(el) {
+      Alpine.destroyTree(el);
+    });
+  }
+});
+document.addEventListener('htmx:afterSettle', function(e) {
+  if (typeof Alpine === 'undefined') return;
+  var target = e.detail.target;
+  if (target) Alpine.initTree(target);
+  Alpine.startObservingMutations();
+});
+</script>
+</body>
+</html>

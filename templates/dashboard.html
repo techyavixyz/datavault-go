@@ -1,0 +1,306 @@
+{{define "body"}}
+<style>
+.dash-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px}
+.ds{background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow)}
+.ds-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.ds-label{font-size:11.5px;font-weight:600;color:var(--tx2)}
+.ds-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ds-val{font-size:22px;font-weight:700;color:var(--tx);line-height:1;margin-bottom:4px}
+.ds-sub{font-size:10.5px;color:var(--tx3);line-height:1.3}
+.dash-bottom{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-top:14px}
+.dash-right{display:flex;flex-direction:column;gap:14px}
+.job-filter{display:flex;gap:6px}
+.jf-btn{padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--br);background:var(--sf);color:var(--tx2);transition:all .15s}
+.jf-btn.active{border-color:var(--ac);background:var(--ac-dim);color:var(--ac)}
+.job-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br)}
+.job-row:last-child{border-bottom:none}
+.jtype{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--sf3);color:var(--tx2);border:1px solid var(--br);letter-spacing:.3px;flex-shrink:0}
+.jstatus{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;flex-shrink:0}
+.js-success{background:#dcfce7;color:#166534}
+.js-failed{background:#fee2e2;color:#991b1b}
+.js-running{background:#dbeafe;color:#1e40af}
+.js-pending{background:#fef9c3;color:#854d0e}
+.js-cancelled{background:#f3f4f6;color:#6b7280}
+.stor-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br)}
+.stor-row:last-child{border-bottom:none}
+.stor-icon{width:32px;height:32px;border-radius:8px;background:var(--sf3);border:1px solid var(--br);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+@media(max-width:1200px){.dash-grid{grid-template-columns:repeat(4,1fr)}.dash-bottom{grid-template-columns:1fr}}
+</style>
+
+{{$d := .Data}}
+
+<!-- Stat Cards -->
+<div class="dash-grid">
+  <!-- Total Jobs -->
+  <div class="ds">
+    <div class="ds-hd">
+      <div class="ds-label">Total Jobs</div>
+      <div class="ds-icon" style="background:#fef2f2">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#c8102e" stroke-width="1.6" stroke-linecap="round"><path d="M2 8c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6"/><path d="M8 5v3l2 1"/></svg>
+      </div>
+    </div>
+    <div class="ds-val">{{$d.TotalJobs}}</div>
+    <div class="ds-sub">All backup jobs</div>
+  </div>
+  <!-- Active Schedules -->
+  <div class="ds">
+    <div class="ds-hd">
+      <div class="ds-label">Active Schedules</div>
+      <div class="ds-icon" style="background:#fef9c3">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#b45309" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      </div>
+    </div>
+    <div class="ds-val">{{$d.ActiveSchedules}}</div>
+    <div class="ds-sub">Running automatically</div>
+  </div>
+  <!-- Total Storage -->
+  <div class="ds" style="grid-column:span 2">
+    <div class="ds-hd">
+      <div class="ds-label">Total Storage</div>
+      <div class="ds-icon" style="background:#eff6ff">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="3" width="12" height="4" rx="1"/><rect x="2" y="9" width="12" height="4" rx="1"/></svg>
+      </div>
+    </div>
+    <div class="ds-val">{{fmtBytesI $d.TotalStorage}}</div>
+    <div class="ds-sub">Across all destinations</div>
+  </div>
+  <!-- Success Rate -->
+  <div class="ds">
+    <div class="ds-hd">
+      <div class="ds-label">Success Rate</div>
+      <div class="ds-icon" style="background:#f0fdf4">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round"><path d="M2 10l3-4 3 3 4-6"/></svg>
+      </div>
+    </div>
+    <div class="ds-val" style="color:#16a34a">{{$d.SuccessRate}}%</div>
+    <div class="ds-sub">Last 30 days</div>
+  </div>
+  <!-- 24h Success -->
+  <div class="ds">
+    <div class="ds-hd">
+      <div class="ds-label">24h Success</div>
+      <div class="ds-icon" style="background:#f0fdf4">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+      </div>
+    </div>
+    <div class="ds-val" style="color:#16a34a">{{$d.Success24h}}</div>
+    <div class="ds-sub">Successful executions</div>
+  </div>
+  <!-- 24h Failed -->
+  <div class="ds">
+    <div class="ds-hd">
+      <div class="ds-label">24h Failed</div>
+      <div class="ds-icon" style="background:#fef2f2">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#c8102e" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10.5v.5"/></svg>
+      </div>
+    </div>
+    <div class="ds-val" style="color:#c8102e">{{$d.Failed24h}}</div>
+    <div class="ds-sub">Errors requiring attention</div>
+  </div>
+</div>
+
+<!-- Activity Chart -->
+<div class="card" style="padding:0;margin-bottom:14px">
+  <div style="padding:16px 20px 10px;display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--tx)">Jobs Activity</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:2px">Last 14 days</div>
+    </div>
+  </div>
+  <div style="padding:4px 16px 16px">
+    <canvas id="activityChart" height="70"></canvas>
+  </div>
+</div>
+
+<!-- Bottom Row -->
+<div class="dash-bottom">
+  <!-- Latest Jobs -->
+  <div class="card" style="padding:0;overflow:hidden" x-data="dashJobs()">
+    <div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--br)">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--tx)">Latest Jobs</div>
+      </div>
+      <div class="job-filter">
+        <button class="jf-btn" :class="filter==='all'?'active':''" @click="filter='all'">All</button>
+        <button class="jf-btn" :class="filter==='backup'?'active':''" @click="filter='backup'">Backup</button>
+        <button class="jf-btn" :class="filter==='restore'?'active':''" @click="filter='restore'">Restore</button>
+      </div>
+    </div>
+    <div style="padding:0 18px;max-height:380px;overflow-y:auto">
+      <template x-if="filtered().length===0">
+        <div style="padding:32px 0;text-align:center;color:var(--tx3);font-size:13px">No jobs found.</div>
+      </template>
+      <template x-for="j in filtered()" :key="j.id">
+        <div class="job-row">
+          <span class="jtype" :style="j.type==='restore'?'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe':''" x-text="j.type==='restore'?'Restore':'Backup'"></span>
+          <template x-if="j.type==='backup'">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--tx3)" stroke-width="1.5" stroke-linecap="round"><ellipse cx="8" cy="5" rx="5" ry="2.5"/><path d="M3 5v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V5"/><path d="M3 8v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V8"/></svg>
+          </template>
+          <template x-if="j.type==='restore'">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 8a5.5 5.5 0 1 0 .75-2.75"/><path d="M2 3.5l.75 2.75 2.75-.75"/></svg>
+          </template>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="j.source_name||'—'"></div>
+            <div style="font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" x-text="j.dest_name||''"></div>
+          </div>
+          <span class="jstatus" :class="statusClass(j.status)" x-text="statusLabel(j.status)"></span>
+          <div style="font-size:11px;color:var(--tx3);white-space:nowrap;flex-shrink:0" x-text="timeAgo(j.started_at)"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="dash-right">
+    <!-- Job Status Donut -->
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:2px">Job Status</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Last 30 days</div>
+      <div style="position:relative;width:160px;margin:0 auto 14px">
+        <canvas id="statusChart" width="160" height="160"></canvas>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+          <div style="font-size:22px;font-weight:700;color:var(--tx)">{{$d.SuccessRate}}%</div>
+          <div style="font-size:11px;color:var(--tx3)">Success</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tx2)"><span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block"></span>Completed</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tx2)"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block"></span>Failed</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tx2)"><span style="width:10px;height:10px;border-radius:50%;background:#9ca3af;display:inline-block"></span>Cancelled</div>
+      </div>
+    </div>
+
+    <!-- Storage Usage -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--tx)">Storage Usage</div>
+        </div>
+        <div style="font-size:10.5px;color:var(--tx3)">Updated: {{$d.StorageUpdated}}</div>
+      </div>
+      {{if $d.Storage}}
+      <div>
+        {{range $d.Storage}}
+        <div class="stor-row">
+          <div class="stor-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--tx3)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="12" height="4" rx="1"/><rect x="2" y="9" width="12" height="4" rx="1"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--tx)">{{.Name}}</div>
+            <div style="font-size:11px;color:var(--tx3)">{{.Count}} backups</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--tx);white-space:nowrap">{{fmtBytesI .Bytes}}</div>
+        </div>
+        {{end}}
+        <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:2px;border-top:1px solid var(--br)">
+          <div style="font-size:12.5px;font-weight:600;color:var(--tx2)">Total</div>
+          <div style="font-size:13px;font-weight:700;color:var(--tx)">{{fmtBytesI $d.StorageTotal}}</div>
+        </div>
+      </div>
+      {{else}}
+      <div style="text-align:center;padding:20px 0;color:var(--tx3);font-size:13px">No destinations configured.</div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<script>
+const _dashRaw = {{.Data | jsonStr}};
+
+function dashJobs() {
+  return {
+    filter: 'all',
+    filtered() {
+      const jobs = _dashRaw.Recent || [];
+      if (this.filter === 'all') return jobs;
+      return jobs.filter(j => j.type === this.filter);
+    },
+    statusClass(s) {
+      return {success:'js-success',failed:'js-failed',running:'js-running',pending:'js-pending',cancelled:'js-cancelled'}[s]||'js-pending';
+    },
+    statusLabel(s) {
+      return {success:'Done',failed:'Failed',running:'Running',pending:'Pending',cancelled:'Cancelled'}[s]||s;
+    },
+    timeAgo(ts) {
+      if (!ts) return '';
+      const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s/60)+'m ago';
+      if (s < 86400) return Math.floor(s/3600)+'h ago';
+      return Math.floor(s/86400)+'d ago';
+    }
+  };
+}
+
+(function() {
+  function initDashCharts() {
+    // Destroy previous instances if navigating back
+    if (window._chartActivity) { try { window._chartActivity.destroy(); } catch(e){} }
+    if (window._chartStatus)   { try { window._chartStatus.destroy();   } catch(e){} }
+
+    const activity = _dashRaw.Activity || [];
+    const labels   = activity.map(d => d.date);
+
+    const actEl = document.getElementById('activityChart');
+    if (actEl) {
+      window._chartActivity = new Chart(actEl, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label:'Completed', data: activity.map(d=>d.completed), backgroundColor:'#22c55e', borderRadius:3, borderSkipped:false },
+            { label:'Failed',    data: activity.map(d=>d.failed),    backgroundColor:'#ef4444', borderRadius:3, borderSkipped:false },
+            { label:'Running',   data: activity.map(d=>d.running),   backgroundColor:'#3b82f6', borderRadius:3, borderSkipped:false },
+            { label:'Pending',   data: activity.map(d=>d.pending),   backgroundColor:'#eab308', borderRadius:3, borderSkipped:false },
+            { label:'Cancelled', data: activity.map(d=>d.cancelled), backgroundColor:'#9ca3af', borderRadius:3, borderSkipped:false },
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position:'bottom', labels:{ boxWidth:10, boxHeight:10, borderRadius:5, useBorderRadius:true, padding:16, font:{size:11.5} } }
+          },
+          scales: {
+            x: { stacked:true, grid:{display:false}, ticks:{font:{size:11},color:'#9999a8'} },
+            y: { stacked:true, beginAtZero:true, grid:{color:'#e4e4e8'}, ticks:{font:{size:11},color:'#9999a8',precision:0} }
+          }
+        }
+      });
+    }
+
+    const statusEl = document.getElementById('statusChart');
+    if (statusEl) {
+      const completed = _dashRaw.StatusCompleted || 0;
+      const failed    = _dashRaw.StatusFailed    || 0;
+      const cancelled = _dashRaw.StatusCancelled || 0;
+      const total = completed + failed + cancelled;
+      window._chartStatus = new Chart(statusEl, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed','Failed','Cancelled'],
+          datasets: [{
+            data: total > 0 ? [completed, failed, cancelled] : [1, 0, 0],
+            backgroundColor: total > 0 ? ['#22c55e','#ef4444','#9ca3af'] : ['#e4e4e8','#e4e4e8','#e4e4e8'],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          cutout: '72%',
+          plugins: { legend:{display:false}, tooltip:{enabled: total>0} }
+        }
+      });
+    }
+  }
+
+  if (typeof Chart !== 'undefined') {
+    initDashCharts();
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
+    s.onload = initDashCharts;
+    document.head.appendChild(s);
+  }
+})();
+</script>
+{{end}}

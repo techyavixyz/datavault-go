@@ -1,0 +1,276 @@
+{{define "dest-cards"}}
+{{if .}}
+{{range .}}
+<div class="ic" id="dest-card-{{.ID}}">
+  <div class="ic-hd">
+    <div>
+      <div class="ic-name">{{.Name}}</div>
+      <div class="ic-meta">
+        {{if eq .StorageType "s3"}}{{if .S3}}{{.S3.BucketName}}/{{.S3.Prefix}}{{end}}
+        {{else if eq .StorageType "gcs"}}{{if .GCS}}{{.GCS.BucketName}}/{{.GCS.Prefix}}{{end}}
+        {{else if eq .StorageType "nfs"}}{{if .NFS}}{{.NFS.MountPath}}/{{.NFS.SubDirectory}}{{end}}
+        {{else if eq .StorageType "smb"}}{{if .SMB}}\\{{.SMB.Host}}\{{.SMB.Share}}{{end}}
+        {{else if eq .StorageType "ssh"}}{{if .SSH}}{{.SSH.Host}}:{{.SSH.RemotePath}}{{end}}
+        {{end}}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+      <span class="badge b-{{.StorageType}}">{{.StorageType}}</span>
+      {{if eq .ConnStatus "connected"}}
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--ok)">
+          <span class="dot dot-ok"></span>Connected
+        </span>
+      {{else if eq .ConnStatus "disconnected"}}
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--er)">
+          <span class="dot dot-er"></span>Disconnected
+        </span>
+      {{end}}
+    </div>
+  </div>
+  <div class="ic-acts">
+    <button class="btn btn-secondary btn-xs" onclick="destEdit('{{.ID}}')">Edit</button>
+    <button class="btn btn-ghost btn-xs" onclick="destTestCard('{{.ID}}', this)">Test</button>
+    <button class="btn btn-danger btn-xs" onclick="destDel('{{.ID}}','{{.Name}}')">Delete</button>
+  </div>
+</div>
+{{end}}
+{{else}}
+<div class="empty" style="grid-column:1/-1">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><rect x="2" y="3" width="12" height="4" rx="1"/><rect x="2" y="9" width="12" height="4" rx="1"/></svg>
+  <div style="font-size:12px">No storage destinations yet</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "body"}}
+<div id="dest-page" x-data="destPage()" @keydown.escape.window="modal=false">
+  <div class="sh-hd">
+    <div class="sh-title">Storage Destinations ({{len .Data}})</div>
+    <button class="btn btn-primary btn-sm" @click="openNew()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      New Destination
+    </button>
+  </div>
+
+  <div id="dest-list" class="grid">
+    {{template "dest-cards" .Data}}
+  </div>
+
+  <div class="backdrop" x-show="modal" x-cloak @click.self="modal=false" style="display:none">
+    <div class="modal">
+      <div class="modal-hd">
+        <div class="modal-title" x-text="editId ? 'Edit Destination' : 'New Storage Destination'"></div>
+        <button class="btn btn-ghost btn-xs" @click="modal=false" style="padding:3px 6px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="fr">
+          <div class="fg"><label>Destination Name</label><input x-model="f.name" placeholder="prod-backups"/></div>
+          <div class="fg"><label>Storage Type</label>
+            <select x-model="f.storage_type">
+              <option value="s3">S3</option><option value="gcs">GCS</option>
+              <option value="nfs">NFS</option><option value="smb">SMB</option><option value="ssh">SSH</option>
+            </select>
+          </div>
+        </div>
+        <div x-show="f.storage_type==='s3'" class="cond">
+          <div class="fr">
+            <div class="fg"><label>Bucket</label><input x-model="f.s3.bucket_name" placeholder="my-backups"/></div>
+            <div class="fg"><label>Region</label><input x-model="f.s3.region" placeholder="us-east-1"/></div>
+          </div>
+          <div class="fg"><label>Key Prefix</label><input x-model="f.s3.prefix" placeholder="backups/"/></div>
+          <div class="fr">
+            <div class="fg"><label>Access Key ID</label><div class="hint" style="margin-bottom:4px">Leave blank for IAM role</div><input x-model="f.s3.access_key_id"/></div>
+            <div class="fg"><label>Secret Access Key</label><div class="hint" style="margin-bottom:4px">&nbsp;</div><input type="password" x-model="f.s3.secret_access_key"/></div>
+          </div>
+          <div class="fg">
+            <label>Or upload credentials CSV</label>
+            <div class="hint" style="margin-bottom:6px">AWS IAM → Security credentials → Create access key → Download .csv</div>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px dashed var(--br2);border-radius:var(--r);font-size:12px;color:var(--tx2);background:var(--sf);transition:all .15s" @dragover.prevent @drop.prevent="loadS3CSV($event, true)">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v9M4 9l4 4 4-4"/><path d="M2 13h12"/></svg>
+              <span x-text="s3CSVName || 'Choose .csv file or drag & drop'"></span>
+              <input type="file" accept=".csv,text/csv" style="display:none" @change="loadS3CSV($event, false)"/>
+            </label>
+            <div x-show="s3CSVErr" class="hint" style="color:var(--er);margin-top:4px" x-text="s3CSVErr"></div>
+          </div>
+          <div class="fg"><label>Endpoint URL</label><div class="hint" style="margin-bottom:4px">For MinIO / S3-compatible. Leave blank for AWS.</div><input x-model="f.s3.endpoint_url" placeholder="https://minio.company.com"/></div>
+        </div>
+        <div x-show="f.storage_type==='gcs'" class="cond">
+          <div class="fr">
+            <div class="fg"><label>Bucket</label><input x-model="f.gcs.bucket_name"/></div>
+            <div class="fg"><label>Project ID</label><input x-model="f.gcs.project_id"/></div>
+          </div>
+          <div class="fg"><label>Key Prefix</label><input x-model="f.gcs.prefix" placeholder="backups/"/></div>
+          <div class="fg">
+            <label>Service Account JSON</label>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div class="hint">Leave blank for Application Default Credentials.</div>
+              <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:4px 10px;border:1px dashed var(--br2);border-radius:var(--r);font-size:11.5px;color:var(--tx2);background:var(--sf);white-space:nowrap" @dragover.prevent @drop.prevent="loadGCSJSON($event, true)">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v9M4 9l4 4 4-4"/><path d="M2 13h12"/></svg>
+                <span x-text="gcsJSONName || 'Upload .json'"></span>
+                <input type="file" accept=".json,application/json" style="display:none" @change="loadGCSJSON($event, false)"/>
+              </label>
+            </div>
+            <textarea x-model="f.gcs.service_account_json" placeholder='{"type":"service_account",...}'></textarea>
+            <div x-show="gcsJSONErr" class="hint" style="color:var(--er);margin-top:4px" x-text="gcsJSONErr"></div>
+          </div>
+        </div>
+        <div x-show="f.storage_type==='nfs'" class="cond">
+          <div class="fg"><label>Mount Path</label><div class="hint" style="margin-bottom:4px">Path inside container where NFS is mounted</div><input x-model="f.nfs.mount_path" placeholder="/mnt/nfs"/></div>
+          <div class="fg"><label>Sub Directory</label><input x-model="f.nfs.sub_directory" placeholder="backups"/></div>
+        </div>
+        <div x-show="f.storage_type==='smb'" class="cond">
+          <div class="fr">
+            <div class="fg"><label>Host</label><input x-model="f.smb.host" placeholder="192.168.1.100"/></div>
+            <div class="fg"><label>Share</label><input x-model="f.smb.share" placeholder="Backups"/></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>Username</label><input x-model="f.smb.username"/></div>
+            <div class="fg"><label>Password</label><input type="password" x-model="f.smb.password"/></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>Domain</label><input x-model="f.smb.domain" placeholder="WORKGROUP"/></div>
+            <div class="fg"><label>Sub Directory</label><input x-model="f.smb.sub_directory" placeholder="backups"/></div>
+          </div>
+        </div>
+        <div x-show="f.storage_type==='ssh'" class="cond">
+          <div class="fr">
+            <div class="fg"><label>Host</label><input x-model="f.ssh.host" placeholder="backup.example.com"/></div>
+            <div class="fg"><label>Port</label><input type="number" x-model="f.ssh.port" placeholder="22"/></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>Username</label><input x-model="f.ssh.username"/></div>
+            <div class="fg"><label>Password</label><div class="hint" style="margin-bottom:4px">Optional if using private key</div><input type="password" x-model="f.ssh.password"/></div>
+          </div>
+          <div class="fg"><label>Remote Path</label><input x-model="f.ssh.remote_path" placeholder="/backups"/></div>
+          <div class="fg"><label>Private Key (PEM)</label>
+            <textarea x-model="f.ssh.private_key" placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----" style="min-height:88px;font-size:11px"></textarea>
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-ghost btn-sm" @click="testConn()" :disabled="testing">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L5 9h4l-3 5 8-8h-5l2-4z"/></svg>
+            <span x-text="testing?'Testing…':'Test Connection'"></span>
+          </button>
+          <div x-show="testRes" :class="'test-result '+(testRes&&testRes.ok?'test-ok':'test-er')" x-text="testRes?(testRes.ok?'✓  ':'✗  ')+testRes.msg:''"></div>
+        </div>
+        <div x-show="err" class="hint" style="color:var(--er);margin-top:6px" x-text="err"></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" @click="modal=false">Cancel</button>
+        <button class="btn btn-primary" @click="save()" :disabled="busy">
+          <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="busy?'Saving…':'Save Destination'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function destPage(){
+  const mk=t=>({gcs:{bucket_name:'',prefix:'backups/',service_account_json:'',project_id:''},s3:{bucket_name:'',prefix:'backups/',region:'us-east-1',access_key_id:'',secret_access_key:'',endpoint_url:''},nfs:{mount_path:'/mnt/nfs',sub_directory:'backups'},smb:{host:'',share:'',username:'',password:'',domain:'',sub_directory:'backups'},ssh:{host:'',port:22,username:'',password:'',private_key:'',remote_path:'/backups'}}[t]);
+  const blank=()=>{const f={name:'',storage_type:'s3'};['gcs','s3','nfs','smb','ssh'].forEach(t=>f[t]=mk(t));return f;};
+  return{
+    modal:false,busy:false,testing:false,err:'',editId:null,testRes:null,f:blank(),
+    s3CSVName:'',s3CSVErr:'',gcsJSONName:'',gcsJSONErr:'',
+    openNew(){this.f=blank();this.editId=null;this.err='';this.testRes=null;this.s3CSVName='';this.s3CSVErr='';this.gcsJSONName='';this.gcsJSONErr='';this.modal=true;},
+    openEdit(item){const f=blank();Object.assign(f,item);['gcs','s3','nfs','smb','ssh'].forEach(t=>{if(item[t])f[t]={...mk(t),...item[t]};});this.f=f;this.editId=item.id;this.err='';this.testRes=null;this.s3CSVName='';this.s3CSVErr='';this.gcsJSONName='';this.gcsJSONErr='';this.modal=true;},
+    async save(){
+      if(!this.f.name.trim()){this.err='Name required';return;}
+      this.busy=true;this.err='';
+      try{
+        if(this.editId) await apiFetch(`/destinations/${this.editId}`,{method:'PUT',body:{...this.f,id:this.editId}});
+        else            await apiFetch('/destinations',{method:'POST',body:this.f});
+        this.modal=false;refresh('/partials/destinations','#dest-list');
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    },
+    async testConn(){
+      this.testing=true;this.testRes=null;
+      try{
+        // Always test current form values so changing config is tested immediately
+        const r=await apiFetch('/destinations/test',{method:'POST',body:this.f});
+        this.testRes={ok:r.status==='ok',msg:r.message};
+      }catch(e){this.testRes={ok:false,msg:e.message};}finally{this.testing=false;}
+    },
+    loadS3CSV(e, isDrop){
+      this.s3CSVErr='';
+      const file = isDrop ? e.dataTransfer.files[0] : e.target.files[0];
+      if(!file) return;
+      this.s3CSVName = file.name;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const lines = ev.target.result.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+        let found = false;
+        for(let i=1;i<lines.length;i++){
+          // Handle quoted CSV values
+          const cols = lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+          if(cols.length>=3 && cols[1]){
+            // Format: User name, Access key ID, Secret access key
+            this.f.s3.access_key_id = cols[1];
+            this.f.s3.secret_access_key = cols[2];
+            found = true; break;
+          } else if(cols.length===2 && cols[0]){
+            // Format: Access key ID, Secret access key
+            this.f.s3.access_key_id = cols[0];
+            this.f.s3.secret_access_key = cols[1];
+            found = true; break;
+          }
+        }
+        if(!found) this.s3CSVErr = 'Could not parse credentials from CSV. Expected AWS IAM format.';
+        if(!isDrop) e.target.value='';
+      };
+      reader.onerror = () => { this.s3CSVErr = 'Failed to read file.'; };
+      reader.readAsText(file);
+    },
+    loadGCSJSON(e, isDrop){
+      this.gcsJSONErr='';
+      const file = isDrop ? e.dataTransfer.files[0] : e.target.files[0];
+      if(!file) return;
+      this.gcsJSONName = file.name;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try{
+          const parsed = JSON.parse(ev.target.result);
+          if(!parsed.type || !parsed.private_key){
+            this.gcsJSONErr='File does not look like a GCS service account key (missing type or private_key).';
+            return;
+          }
+          this.f.gcs.service_account_json = ev.target.result;
+          if(parsed.project_id && !this.f.gcs.project_id) this.f.gcs.project_id = parsed.project_id;
+        }catch(err){
+          this.gcsJSONErr='Invalid JSON file.';
+        }
+        if(!isDrop) e.target.value='';
+      };
+      reader.onerror = () => { this.gcsJSONErr = 'Failed to read file.'; };
+      reader.readAsText(file);
+    }
+  };
+}
+async function destEdit(id){
+  try{
+    const item=await apiFetch(`/destinations/${id}`);
+    Alpine.$data(document.getElementById('dest-page')).openEdit(item);
+  }catch(e){console.error('destEdit failed:',e);}
+}
+function destDel(id,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  apiFetch(`/destinations/${id}`,{method:'DELETE'}).then(()=>refresh('/partials/destinations','#dest-list'));
+}
+async function destTestCard(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+  try {
+    await apiFetch(`/destinations/${id}/test`, {method:'POST'});
+  } catch(e) {
+    // status persisted regardless
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test';
+    refresh('/partials/destinations', '#dest-list');
+  }
+}
+</script>
+{{end}}

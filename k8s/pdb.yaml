@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: datavault
+  namespace: datavault
+spec:
+  maxUnavailable: 0   # never evict the single pod during voluntary disruptions (node drains, etc.)
+  selector:
+    matchLabels:
+      app: datavault

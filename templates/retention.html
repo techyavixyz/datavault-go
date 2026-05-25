@@ -1,0 +1,239 @@
+{{define "ret-cards"}}
+{{$srcs := .Sources}}
+{{$dsts := .Dests}}
+{{if .Policies}}
+<div class="grid">
+{{range .Policies}}
+{{$pol := .}}
+{{$srcName := ""}}{{range $srcs}}{{if eq .ID $pol.SourceID}}{{$srcName = .Name}}{{end}}{{end}}
+{{$dstName := ""}}{{range $dsts}}{{if eq .ID $pol.DestinationID}}{{$dstName = .Name}}{{end}}{{end}}
+{{$nextRun := retNextRun .ID}}
+<div class="ic" id="ret-card-{{.ID}}">
+  <div class="ic-hd">
+    <div>
+      <div class="ic-name">{{.Name}}</div>
+      <div class="ic-meta">{{$srcName}} → {{$dstName}}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      {{if .Schedule}}
+        <span class="badge" style="background:rgba(63,185,80,.12);color:#3fb950;border:1px solid rgba(63,185,80,.25)">Auto {{.Schedule}}</span>
+      {{end}}
+      {{if .KeepAll}}
+        <span class="badge" style="background:rgba(88,166,255,.12);color:#58a6ff;border:1px solid rgba(88,166,255,.25)">Keep All</span>
+      {{else}}
+        {{if .KeepLast}}<span class="badge b-info" style="font-size:10px">Last {{.KeepLast}}</span>{{end}}
+        {{if .KeepDaily}}<span class="badge b-info" style="font-size:10px">Daily {{.KeepDaily}}d</span>{{end}}
+        {{if .KeepWeekly}}<span class="badge b-info" style="font-size:10px">Weekly {{.KeepWeekly}}w</span>{{end}}
+        {{if .KeepMonthly}}<span class="badge b-info" style="font-size:10px">Monthly {{.KeepMonthly}}m</span>{{end}}
+        {{if .KeepYearly}}<span class="badge b-info" style="font-size:10px">Yearly {{.KeepYearly}}y</span>{{end}}
+      {{end}}
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">
+    {{if .LastRunAt}}Last run: {{fmtTimePtr .LastRunAt}}{{if .LastDeleted}} · Deleted {{.LastDeleted}} backup{{if gt .LastDeleted 1}}s{{end}}{{end}}{{else}}Never run{{end}}
+    {{if $nextRun}} · Next: {{fmtTimePtr $nextRun}}{{end}}
+  </div>
+  <div class="ic-acts">
+    <button class="btn btn-primary btn-xs" onclick="retApply('{{.ID}}', this)">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 .75-2.75"/><path d="M2 3.5l.75 2.75 2.75-.75"/></svg>
+      Apply Now
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="retEdit('{{.ID}}')">Edit</button>
+    <button class="btn btn-danger btn-xs" onclick="retDel('{{.ID}}','{{.Name}}')">Delete</button>
+  </div>
+</div>
+{{end}}
+</div>
+{{else}}
+<div class="empty" style="grid-column:1/-1">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><path d="M3 5h10M8 5V3M5.5 5l.5 8h4l.5-8"/></svg>
+  <div style="font-size:12px">No retention policies yet</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "body"}}
+<div id="ret-page" x-data="retPage()">
+  <div class="sh-hd">
+    <div class="sh-title">Retention Policies ({{len .Data.Policies}})</div>
+    <button class="btn btn-primary btn-sm" onclick="retOpenNew()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      New Policy
+    </button>
+  </div>
+
+  <div id="ret-list">{{template "ret-cards" .Data}}</div>
+
+  <!-- Apply result banner -->
+  <div id="ret-result" style="display:none;margin-top:12px" class="card">
+    <div id="ret-result-text" style="font-size:13px"></div>
+  </div>
+
+  <!-- Modal -->
+  <div class="backdrop" x-show="modal" x-cloak @click.self="modal=false" style="display:none">
+    <div class="modal">
+      <div class="modal-hd">
+        <div class="modal-title" x-text="editId?'Edit Retention Policy':'New Retention Policy'"></div>
+        <button class="btn btn-ghost btn-xs" @click="modal=false" style="padding:3px 6px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="fr">
+          <div class="fg"><label>Policy Name</label><input x-model="f.name" placeholder="my-retention-policy"/></div>
+          <div class="fg">
+            <label>Auto-Run Schedule</label>
+            <select x-model="f.schedule">
+              <option value="">Manual only</option>
+              <option value="hourly">Every hour</option>
+              <option value="daily">Daily (midnight)</option>
+              <option value="weekly">Weekly (Sunday)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>Database Source</label>
+            <select x-model="f.source_id">
+              <option value="">— Select source —</option>
+              {{range .Data.Sources}}<option value="{{.ID}}">{{.Name}} ({{.DBType}})</option>{{end}}
+            </select>
+          </div>
+          <div class="fg"><label>Storage Destination</label>
+            <select x-model="f.destination_id">
+              <option value="">— Select destination —</option>
+              {{range .Data.Dests}}<option value="{{.ID}}">{{.Name}} ({{.StorageType}})</option>{{end}}
+            </select>
+          </div>
+        </div>
+
+        <div class="fg" style="margin-top:4px">
+          <label>Retention Mode</label>
+          <div class="mode-pick" style="margin-top:6px">
+            <div :class="'mode-opt'+(f.keep_all?' sel':'')" @click="f.keep_all=true">
+              <input type="radio" :checked="f.keep_all" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="f.keep_all?'color:var(--ac)':''">Keep All</div>
+                <div class="mode-opt-sub">Never delete any backups</div>
+              </div>
+            </div>
+            <div :class="'mode-opt'+(!f.keep_all?' sel':'')" @click="f.keep_all=false">
+              <input type="radio" :checked="!f.keep_all" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="!f.keep_all?'color:var(--ac)':''">Custom Rules</div>
+                <div class="mode-opt-sub">Configure how long to keep backups</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div x-show="!f.keep_all" style="margin-top:12px">
+          <div class="hint" style="margin-bottom:10px">A backup is kept if it matches <strong>any</strong> of the enabled rules. All rules apply to successful backups only — failed/pending are always kept.</div>
+          <div class="fr">
+            <div class="fg">
+              <label>Keep Last <span style="color:var(--tx3)">(most recent N)</span></label>
+              <input type="number" x-model.number="f.keep_last" min="0" placeholder="0 = disabled"/>
+            </div>
+            <div class="fg">
+              <label>Keep Daily <span style="color:var(--tx3)">(one/day for N days)</span></label>
+              <input type="number" x-model.number="f.keep_daily" min="0" placeholder="0 = disabled"/>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="fg">
+              <label>Keep Weekly <span style="color:var(--tx3)">(one/week for N weeks)</span></label>
+              <input type="number" x-model.number="f.keep_weekly" min="0" placeholder="0 = disabled"/>
+            </div>
+            <div class="fg">
+              <label>Keep Monthly <span style="color:var(--tx3)">(one/month for N months)</span></label>
+              <input type="number" x-model.number="f.keep_monthly" min="0" placeholder="0 = disabled"/>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="fg">
+              <label>Keep Yearly <span style="color:var(--tx3)">(one/year for N years)</span></label>
+              <input type="number" x-model.number="f.keep_yearly" min="0" placeholder="0 = disabled"/>
+            </div>
+            <div class="fg"></div>
+          </div>
+        </div>
+
+        <div x-show="err" class="hint" style="color:var(--er);margin-top:8px" x-text="err"></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" @click="modal=false">Cancel</button>
+        <button class="btn btn-primary" @click="save()" :disabled="busy">
+          <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="busy?'Saving…':'Save Policy'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function retPage(){
+  const blank={name:'',schedule:'',source_id:'',destination_id:'',keep_all:false,keep_last:0,keep_daily:0,keep_weekly:0,keep_monthly:0,keep_yearly:0};
+  return{
+    modal:false,busy:false,err:'',editId:null,f:{...blank},
+    openNew(){this.f={...blank};this.editId=null;this.err='';this.modal=true;},
+    openEdit(item){
+      this.f={
+        name:item.name,schedule:item.schedule||'',
+        source_id:item.source_id,destination_id:item.destination_id,
+        keep_all:item.keep_all||false,
+        keep_last:item.keep_last||0,keep_daily:item.keep_daily||0,
+        keep_weekly:item.keep_weekly||0,keep_monthly:item.keep_monthly||0,keep_yearly:item.keep_yearly||0
+      };
+      this.editId=item.id;this.err='';this.modal=true;
+    },
+    async save(){
+      if(!this.f.name.trim()){this.err='Name required';return;}
+      if(!this.f.source_id||!this.f.destination_id){this.err='Source and destination required';return;}
+      this.busy=true;this.err='';
+      try{
+        if(this.editId) await apiFetch(`/retention/${this.editId}`,{method:'PUT',body:this.f});
+        else            await apiFetch('/retention',{method:'POST',body:this.f});
+        this.modal=false;
+        refresh('/partials/retention','#ret-list');
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    }
+  };
+}
+
+function retOpenNew(){
+  const pg=Alpine.$data(document.getElementById('ret-page'));
+  if(pg) pg.openNew();
+}
+
+async function retEdit(id){
+  try{
+    const item=await apiFetch(`/retention/${id}`);
+    Alpine.$data(document.getElementById('ret-page')).openEdit(item);
+  }catch(e){console.error('retEdit:',e);}
+}
+
+async function retApply(id, btn){
+  if(!confirm('Apply this retention policy now? Matching backups will be permanently deleted from storage.'))return;
+  btn.disabled=true;btn.textContent='Applying…';
+  const result=document.getElementById('ret-result');
+  const txt=document.getElementById('ret-result-text');
+  result.style.display='none';
+  try{
+    const r=await apiFetch(`/retention/${id}/apply`,{method:'POST'});
+    txt.innerHTML=`<span style="color:var(--ok)">✓</span> Kept <strong>${r.kept}</strong> backup${r.kept!==1?'s':''}, deleted <strong>${r.deleted}</strong>${r.errors&&r.errors.length?`<br><span style="color:var(--er);font-size:11.5px">${r.errors.join('<br>')}</span>`:''}`;
+    result.style.display='';
+    refresh('/partials/retention','#ret-list');
+  }catch(e){
+    txt.innerHTML=`<span style="color:var(--er)">✗ ${e.message}</span>`;
+    result.style.display='';
+  }finally{
+    btn.disabled=false;btn.textContent='Apply Now';
+  }
+}
+
+function retDel(id,name){
+  if(!confirm(`Delete policy "${name}"? Backups will NOT be affected.`))return;
+  apiFetch(`/retention/${id}`,{method:'DELETE'}).then(()=>refresh('/partials/retention','#ret-list'));
+}
+</script>
+{{end}}

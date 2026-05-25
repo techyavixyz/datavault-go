@@ -1,0 +1,14 @@
+services:
+  datavault:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - datavault_data:/data
+    environment:
+      - DB_PATH=/data/db.json
+      - PORT=8000
+    restart: unless-stopped
+
+volumes:
+  datavault_data:

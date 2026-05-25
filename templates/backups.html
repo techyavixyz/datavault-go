@@ -1,0 +1,256 @@
+{{define "bk-table"}}
+{{if .}}
+<div class="tw"><table>
+  <thead><tr>
+    <th>Source</th><th>Destination</th><th>File</th>
+    <th>Size</th><th>Checksum</th><th>Status</th><th>Started</th><th></th>
+  </tr></thead>
+  <tbody>
+  {{range .}}
+  <tr>
+    <td>
+      <div style="font-weight:500">{{.SourceName}}</div>
+      <span class="badge b-{{.DBType}}">{{.DBType}}</span>
+    </td>
+    <td>
+      <div style="font-weight:500">{{.DestinationName}}</div>
+      <span class="badge b-{{.StorageType}}">{{.StorageType}}</span>
+    </td>
+    <td><span class="mono" style="font-size:11.5px;word-break:break-all;max-width:280px;display:block">{{.FileName}}</span></td>
+    <td class="mono" style="font-size:11.5px">{{fmtBytes .SizeBytes}}</td>
+    <td class="mono" style="font-size:10.5px;color:var(--tx3)">
+      {{if .Checksum}}<span title="SHA-256: {{.Checksum}}">{{truncate .Checksum 12}}…</span>{{else}}—{{end}}
+    </td>
+    <td>
+      <span class="badge b-{{.Status}}">
+        <span class="dot dot-{{dotClass .Status}}" style="margin-right:4px"></span>{{.Status}}
+      </span>
+    </td>
+    <td style="font-size:11.5px;color:var(--tx3)">{{fmtTime .StartedAt}}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-xs" onclick="openLog('{{.ID}}','{{.SourceName}}','{{.Status}}')" style="margin-right:4px">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h4"/></svg>
+        Logs
+      </button>
+      <button class="btn btn-danger btn-xs" onclick="bkDel('{{.ID}}')">Del</button>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table></div>
+{{else}}
+<div class="empty">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><path d="M8 3v9M4 9l4 4 4-4"/><path d="M2 13h12"/></svg>
+  <div style="font-size:12px">No backup jobs yet</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "body"}}
+<div id="bk-page" x-data="backupPage()">
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="sh-hd" style="margin-bottom:14px">
+      <div class="sh-title">Run Backup</div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Database Source</label>
+        <select x-model="f.source_id">
+          <option value="">— Select source —</option>
+          {{range .Data.Sources}}
+          <option value="{{.ID}}">{{.Name}} ({{.DBType}})</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="fg"><label>Storage Destination</label>
+        <select x-model="f.destination_id">
+          <option value="">— Select destination —</option>
+          {{range .Data.Dests}}
+          <option value="{{.ID}}">{{.Name}} ({{.StorageType}})</option>
+          {{end}}
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Label <span style="color:var(--tx3)">(optional)</span></label><input x-model="f.label" placeholder="daily-backup"/></div>
+      <div class="fg" style="display:flex;align-items:center;gap:8px;padding-top:20px">
+        <label class="tgl" style="width:34px;margin-bottom:0">
+          <input type="checkbox" x-model="f.compress"/>
+          <span class="tgl-sl"></span>
+        </label>
+        <span style="font-size:12.5px;color:var(--tx2)">Compress (.tar.gz)</span>
+      </div>
+    </div>
+    <div class="fr" x-show="isRedis()" style="display:none">
+      <div class="fg">
+        <label>Redis Backup Format</label>
+        <div style="display:flex;gap:20px;align-items:center;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:var(--tx2)">
+            <input type="radio" x-model="f.redis_mode" value="" style="margin:0;accent-color:var(--pr)"/>
+            NDJSON &nbsp;<span style="color:var(--tx3)">(per-key, current DB)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:var(--tx2)">
+            <input type="radio" x-model="f.redis_mode" value="rdb" style="margin:0;accent-color:var(--pr)"/>
+            RDB Snapshot &nbsp;<span style="color:var(--tx3)">(all databases, binary)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Folder Pattern</label>
+        <input x-model="f.folder_pattern" placeholder="{source}/{date}"/>
+        <div class="hint">Tokens: {source} {label} {date} {year} {month} {day} {timestamp}</div>
+      </div>
+      <div class="fg"><label>Filename Pattern</label>
+        <input x-model="f.filename_pattern" placeholder="{source}_{timestamp}"/>
+        <div class="hint">Extension added automatically</div>
+      </div>
+    </div>
+    <div class="fg" style="margin-top:8px">
+      <label>Notification Channels <span style="color:var(--tx3)">(optional)</span></label>
+      <select @change="bkAddChannel($event.target.value);$event.target.value=''">
+        <option value="">+ Add notification channel…</option>
+        {{range .Data.Channels}}
+        <option value="{{.ID}}" x-show="!f.notification_channel_ids.includes('{{.ID}}')">{{.Name}} ({{.Type}})</option>
+        {{end}}
+      </select>
+      <div x-show="f.notification_channel_ids.length>0"
+           style="margin-top:6px;padding:8px 10px;border:1px solid var(--br);border-radius:var(--r);background:var(--bg2);display:flex;flex-wrap:wrap;gap:6px;min-height:36px">
+        <template x-for="id in f.notification_channel_ids" :key="id">
+          <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 6px 3px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--br);font-size:12px">
+            <span x-text="_bkNotifChannels[id]?.name||id"></span>
+            <span x-text="_bkNotifChannels[id]?.type" style="font-size:10px;color:var(--tx3);text-transform:uppercase"></span>
+            <button type="button" @click="f.notification_channel_ids=f.notification_channel_ids.filter(x=>x!==id)" style="background:none;border:none;cursor:pointer;color:var(--tx3);padding:0 2px;line-height:1;font-size:15px">&times;</button>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div x-show="err" class="hint" style="color:var(--er);margin-bottom:8px" x-text="err"></div>
+    <button class="btn btn-primary" @click="run()" :disabled="busy">
+      <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+      <span x-text="busy?'Starting…':'Run Backup'"></span>
+    </button>
+  </div>
+
+  <div class="sh-hd">
+    <div class="sh-title">Backup Jobs</div>
+    <button class="btn btn-ghost btn-sm" onclick="refresh('/partials/backups','#bk-list')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 .75-2.75"/><path d="M2 3.5l.75 2.75 2.75-.75"/></svg>
+      Refresh
+    </button>
+  </div>
+  <div class="card" style="padding:0">
+    <div id="bk-list">{{template "bk-table" .Data.Backups}}</div>
+  </div>
+
+  <!-- Log panel — controlled via DOM, no Alpine directives -->
+  <div id="log-panel" class="log-panel" style="display:none">
+    <div class="log-panel-hd">
+      <div class="log-panel-title">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h4"/></svg>
+        Backup Log — <span id="log-title" style="font-family:var(--mono);font-size:10.5px;opacity:.6"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="log-live-dot" class="dot dot-running" style="width:6px;height:6px;display:none"></span>
+        <span id="log-live-text" style="font-size:10.5px;color:rgba(255,255,255,.5);display:none">Live</span>
+        <button class="btn btn-ghost btn-xs" onclick="bkOpenPopup()" style="color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.15);padding:3px 8px">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle"><path d="M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"/><path d="M10 2h4v4"/><path d="M14 2L8 8"/></svg>Popup
+        </button>
+        <button class="btn btn-ghost btn-xs" onclick="bkCloseLog()" style="color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.15);padding:3px 8px">Close</button>
+      </div>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </div>
+
+</div>
+
+<script>
+const _srcTypes = {
+  {{range .Data.Sources}}'{{.ID}}':'{{.DBType}}',{{end}}
+};
+const _bkNotifChannels = {
+  {{range .Data.Channels}}'{{.ID}}':{name:'{{.Name}}',type:'{{.Type}}'},{{end}}
+};
+
+function backupPage(){
+  return{
+    f:{source_id:'',destination_id:'',label:'',compress:true,folder_pattern:'',filename_pattern:'',redis_mode:'',notification_channel_ids:[]},
+    busy:false,err:'',
+    isRedis(){return _srcTypes[this.f.source_id]==='redis';},
+    bkAddChannel(id){if(id&&!this.f.notification_channel_ids.includes(id))this.f.notification_channel_ids.push(id);},
+    async run(){
+      if(!this.f.source_id||!this.f.destination_id){this.err='Select source and destination';return;}
+      this.busy=true;this.err='';
+      try{
+        const r=await apiFetch('/backups',{method:'POST',body:this.f});
+        refresh('/partials/backups','#bk-list');
+        setTimeout(()=>openLog(r.id,r.source_name,r.status),300);
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    }
+  };
+}
+
+// ── Log panel — pure DOM, no Alpine ─────────────────────────────────────────
+let _bkEs=null;
+
+function openLog(id,name,status){
+  const panel=document.getElementById('log-panel');
+  const body=document.getElementById('log-body');
+  const dot=document.getElementById('log-live-dot');
+  const live=document.getElementById('log-live-text');
+  document.getElementById('log-title').textContent=name;
+  panel.style.display='flex';
+  body.innerHTML='';
+  if(_bkEs){_bkEs.close();_bkEs=null;}
+
+  const setLive=on=>{dot.style.display=on?'':'none';live.style.display=on?'':'none';};
+  const addLine=text=>{
+    const d=document.createElement('div');d.textContent=text;
+    d.className=text.includes('ERROR')?'log-line-err':text.includes('complete')||text.includes('Dumped')||text.includes('snapshot')?'log-line-ok':'log-line-info';
+    body.appendChild(d);body.scrollTop=body.scrollHeight;
+  };
+
+  if(status==='running'||status==='pending'){
+    setLive(true);
+    const es=new EventSource(`/api/backups/${id}/stream`);
+    _bkEs=es;
+    es.onmessage=e=>addLine(e.data);
+    es.addEventListener('done',()=>{setLive(false);es.close();_bkEs=null;refresh('/partials/backups','#bk-list');});
+    es.onerror=()=>{setLive(false);es.close();_bkEs=null;};
+  }else{
+    setLive(false);
+    apiFetch(`/backups/${id}`).then(r=>{(r.log||[]).forEach(addLine);body.scrollTop=body.scrollHeight;});
+  }
+}
+
+function bkCloseLog(){
+  document.getElementById('log-panel').style.display='none';
+  if(_bkEs){_bkEs.close();_bkEs=null;}
+}
+
+function bkOpenPopup(){
+  const title=document.getElementById('log-title').textContent;
+  const lines=Array.from(document.getElementById('log-body').children)
+    .map(el=>({t:el.textContent,c:el.className}));
+  const win=window.open('','_blank','width=960,height=640,resizable=yes,scrollbars=yes');
+  if(!win){alert('Allow popups for this site.');return;}
+  const cm={'log-line-err':'#ff7b72','log-line-ok':'#3fb950','log-line-info':'#79c0ff'};
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  win.document.write(`<!DOCTYPE html><html><head>
+<title>Log — ${esc(title)}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0f1117;color:#c9d1d9;font-family:Consolas,Monaco,monospace;font-size:12.5px;line-height:1.8}.hd{padding:10px 16px;background:#161b22;border-bottom:1px solid #30363d;font-weight:600;color:#fff;font-size:13px;position:sticky;top:0;font-family:system-ui,sans-serif;display:flex;justify-content:space-between;align-items:center}.hd small{color:#8b949e;font-weight:400;font-size:11px}.body{padding:12px 16px}.line{white-space:pre-wrap;word-break:break-all;padding:1px 0}</style>
+</head><body>
+<div class="hd"><span>Backup Log — ${esc(title)}</span><small>${lines.length} lines</small></div>
+<div class="body">${lines.map(l=>`<div class="line" style="color:${cm[l.c]||'#c9d1d9'}">${esc(l.t)}</div>`).join('')}</div>
+</body></html>`);
+  win.document.close();
+}
+
+function bkDel(id){
+  if(!confirm('Delete this backup record?'))return;
+  apiFetch(`/backups/${id}`,{method:'DELETE'}).then(()=>refresh('/partials/backups','#bk-list'));
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')bkCloseLog();});
+</script>
+{{end}}

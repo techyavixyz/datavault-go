@@ -1,0 +1,197 @@
+{{define "src-cards"}}
+{{if .Sources}}
+{{range .Sources}}
+<div class="ic" id="src-card-{{.ID}}">
+  <div class="ic-hd">
+    <div>
+      <div class="ic-name">{{.Name}}</div>
+      <div class="ic-meta">
+        {{if eq .ConnectionMode "uri"}}{{.URI}}{{else}}{{.Host}}{{if .Port}}:{{.Port}}{{end}}{{end}}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+      <span class="badge b-{{.DBType}}">{{.DBType}}</span>
+      {{if eq .ConnStatus "connected"}}
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--ok)">
+          <span class="dot dot-ok"></span>Connected
+        </span>
+      {{else if eq .ConnStatus "disconnected"}}
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--er)">
+          <span class="dot dot-er"></span>Disconnected
+        </span>
+      {{end}}
+    </div>
+  </div>
+  {{if .TargetDatabase}}<div style="font-size:11px;color:var(--tx3);margin-bottom:8px">db: {{.TargetDatabase}}</div>{{end}}
+  <div id="src-status-{{.ID}}"></div>
+  <div class="ic-acts">
+    <button class="btn btn-secondary btn-xs" onclick="srcEdit('{{.ID}}')">Edit</button>
+    <button class="btn btn-ghost btn-xs" id="src-test-btn-{{.ID}}" onclick="srcTestCard('{{.ID}}', this)">Test</button>
+    <button class="btn btn-danger btn-xs" onclick="srcDel('{{.ID}}','{{.Name}}')">Delete</button>
+  </div>
+</div>
+{{end}}
+{{else}}
+<div class="empty" style="grid-column:1/-1">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><ellipse cx="8" cy="5" rx="5" ry="2.5"/><path d="M3 5v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V5"/><path d="M3 8v3c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V8"/></svg>
+  <div style="font-size:12px">No database sources yet</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "body"}}
+<div id="src-page" x-data="srcPage()" @keydown.escape.window="modal=false">
+  <div class="sh-hd">
+    <div class="sh-title">Database Sources ({{len .Data.Sources}})</div>
+    <button class="btn btn-primary btn-sm" @click="openNew()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      New Source
+    </button>
+  </div>
+
+  <div id="src-list" class="grid">
+    {{template "src-cards" .Data}}
+  </div>
+
+  <div class="backdrop" x-show="modal" x-cloak @click.self="modal=false" style="display:none">
+    <div class="modal">
+      <div class="modal-hd">
+        <div class="modal-title" x-text="editId ? 'Edit Database Source' : 'New Database Source'"></div>
+        <button class="btn btn-ghost btn-xs" @click="modal=false" style="padding:3px 6px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="fr">
+          <div class="fg"><label>Source Name</label><input x-model="f.name" placeholder="production-db"/></div>
+          <div class="fg"><label>Database Type</label>
+            <select x-model="f.db_type" @change="f.credential_profile_id='none'">
+              <option value="redis">redis</option>
+              <option value="mongodb">mongodb</option>
+              <option value="postgresql">postgresql</option>
+              <option value="mysql">mysql</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Connection Mode</label>
+          <div class="mode-pick">
+            <div :class="'mode-opt'+(f.connection_mode==='uri'?' sel':'')" @click="f.connection_mode='uri'">
+              <input type="radio" :checked="f.connection_mode==='uri'" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="f.connection_mode==='uri'?'color:var(--ac)':''">Direct URI</div>
+                <div class="mode-opt-sub">Full connection string</div>
+              </div>
+            </div>
+            <div :class="'mode-opt'+(f.connection_mode==='profile'?' sel':'')" @click="f.connection_mode='profile'">
+              <input type="radio" :checked="f.connection_mode==='profile'" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="f.connection_mode==='profile'?'color:var(--ac)':''">Credential Profile</div>
+                <div class="mode-opt-sub">Use a saved profile</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div x-show="f.connection_mode==='uri'" class="fg">
+          <label>Connection URI</label>
+          <div class="hint" style="margin-bottom:5px">Running inside Docker? Use your host IP, not localhost.</div>
+          <input x-model="f.uri" :placeholder="uriPlaceholder()" class="mono" style="font-size:11.5px"/>
+        </div>
+        <div x-show="f.connection_mode==='profile'">
+          <div class="fg"><label>Credential Profile</label>
+            <select x-model="f.credential_profile_id">
+              <option value="none">— No Authentication —</option>
+              {{range .Data.Creds}}
+              <option value="{{.ID}}">{{.Name}} ({{.DBType}})</option>
+              {{end}}
+            </select>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>Host</label><input x-model="f.host" placeholder="hostname or IP"/></div>
+            <div class="fg"><label>Port</label><input type="number" x-model="f.port" :placeholder="defPort()"/></div>
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>Target Database</label><input x-model="f.target_database" placeholder="mydb"/></div>
+          <div class="fg" x-show="f.db_type==='mongodb'">
+            <label>Target Collection</label>
+            <input x-model="f.target_collection" placeholder="all collections"/>
+          </div>
+        </div>
+        <div style="margin-top:4px">
+          <button class="btn btn-ghost btn-sm" @click="testConn()" :disabled="testing">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L5 9h4l-3 5 8-8h-5l2-4z"/></svg>
+            <span x-text="testing ? 'Testing…' : 'Test Connection'"></span>
+          </button>
+          <div x-show="testRes" :class="'test-result '+(testRes&&testRes.ok?'test-ok':'test-er')" x-text="testRes?(testRes.ok?'✓  ':'✗  ')+testRes.msg:''"></div>
+        </div>
+        <div x-show="err" class="hint" style="color:var(--er);margin-top:6px" x-text="err"></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" @click="modal=false">Cancel</button>
+        <button class="btn btn-primary" @click="save()" :disabled="busy">
+          <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="busy ? 'Saving…' : 'Save Source'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function srcPage() {
+  const blank={name:'',db_type:'postgresql',connection_mode:'uri',uri:'',credential_profile_id:'none',host:'',port:'',target_database:'',target_collection:''};
+  return {
+    modal:false,busy:false,testing:false,err:'',editId:null,testRes:null,
+    f:{...blank},
+    openNew(){this.f={...blank};this.editId=null;this.err='';this.testRes=null;this.modal=true;},
+    openEdit(item){this.f={...item,port:item.port||'',credential_profile_id:item.credential_profile_id||'none'};this.editId=item.id;this.err='';this.testRes=null;this.modal=true;},
+    uriPlaceholder(){return{redis:'redis://host:6379',mongodb:'mongodb://host:27017/db',postgresql:'postgresql://user:pass@host:5432/db',mysql:'user:pass@tcp(host:3306)/db'}[this.f.db_type]||'';},
+    defPort(){return{redis:6379,mongodb:27017,postgresql:5432,mysql:3306}[this.f.db_type]||'';},
+    async save(){
+      if(!this.f.name.trim()){this.err='Name required';return;}
+      this.busy=true;this.err='';
+      try{
+        const body={...this.f,port:this.f.port?parseInt(this.f.port):undefined};
+        if(this.editId) await apiFetch(`/sources/${this.editId}`,{method:'PUT',body:{...body,id:this.editId}});
+        else            await apiFetch('/sources',{method:'POST',body});
+        this.modal=false;
+        refresh('/partials/sources','#src-list');
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    },
+    async testConn(){
+      this.testing=true;this.testRes=null;
+      try{
+        // Always test current form values so changing the URL is tested immediately
+        const body={...this.f,port:this.f.port?parseInt(this.f.port):undefined};
+        const r=await apiFetch('/sources/test',{method:'POST',body});
+        this.testRes={ok:r.status==='ok',msg:r.message||r.detail};
+      }catch(e){this.testRes={ok:false,msg:e.message};}finally{this.testing=false;}
+    }
+  };
+}
+async function srcEdit(id){
+  try{
+    const item=await apiFetch(`/sources/${id}`);
+    Alpine.$data(document.getElementById('src-page')).openEdit(item);
+  }catch(e){console.error('srcEdit failed:',e);}
+}
+function srcDel(id,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  apiFetch(`/sources/${id}`,{method:'DELETE'}).then(()=>refresh('/partials/sources','#src-list'));
+}
+async function srcTestCard(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+  try {
+    await apiFetch(`/sources/${id}/test`, {method:'POST'});
+  } catch(e) {
+    // status is persisted regardless; refresh will show the result
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test';
+    refresh('/partials/sources', '#src-list');
+  }
+}
+</script>
+{{end}}

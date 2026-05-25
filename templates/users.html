@@ -1,0 +1,214 @@
+{{template "base.html" .}}
+{{define "body"}}
+<style>
+[x-cloak]{display:none!important}
+.role-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.role-super{background:#fef3c7;color:#92400e}
+.role-admin{background:#dbeafe;color:#1e40af}
+.role-normal{background:#f3f4f6;color:#6b7280}
+</style>
+
+<div x-data="usersPage()">
+
+<!-- Header -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
+  <div></div>
+  <button class="btn btn-primary" @click="openNew()">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+    Add User
+  </button>
+</div>
+
+<!-- Users table -->
+<div class="card" style="padding:0;overflow:hidden">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="border-bottom:1px solid var(--br)">
+        <th style="padding:12px 18px;text-align:left;font-size:11.5px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px">User</th>
+        <th style="padding:12px 18px;text-align:left;font-size:11.5px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px">Email</th>
+        <th style="padding:12px 18px;text-align:left;font-size:11.5px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px">Role</th>
+        <th style="padding:12px 18px;text-align:left;font-size:11.5px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px">Created</th>
+        <th style="padding:12px 18px;text-align:right;font-size:11.5px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="u in users" :key="String(u.id)">
+        <tr style="border-bottom:1px solid var(--br)">
+          <td style="padding:14px 18px">
+            <div style="display:flex;align-items:center;gap:11px">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;background:#dc2626">
+                <span x-text="u.username.charAt(0).toUpperCase()"></span>
+              </div>
+              <div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--tx1)" x-text="u.username"></div>
+                <div style="font-size:11px;color:var(--tx3);margin-top:1px" x-show="u.id === callerId">— you</div>
+              </div>
+            </div>
+          </td>
+          <td style="padding:14px 18px;font-size:12.5px;color:var(--tx2)">
+            <span x-text="u.email||'—'" :style="u.email?'':'color:#d1d5db'"></span>
+          </td>
+          <td style="padding:14px 18px">
+            <span class="role-badge"
+                  :class="u.role==='super_admin'?'role-super':u.role==='admin'?'role-admin':'role-normal'"
+                  x-text="u.role==='super_admin'?'Super Admin':u.role==='admin'?'Admin':'Normal'">
+            </span>
+          </td>
+          <td style="padding:14px 18px;font-size:12.5px;color:var(--tx2)" x-text="fmtDate(u.created_at)"></td>
+          <td style="padding:14px 18px;text-align:right">
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <button class="btn btn-sm btn-secondary" @click="openEdit(u)" :disabled="u.id===callerId" :title="u.id===callerId?'Cannot edit your own account':''">Edit</button>
+              <button class="btn btn-sm btn-danger" @click="del(u)" :disabled="u.id===callerId" :title="u.id===callerId?'Cannot delete your own account':''">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </template>
+      <tr x-show="users.length===0">
+        <td colspan="5" style="padding:32px;text-align:center;color:var(--tx3);font-size:13px">No users found.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div x-show="modal" x-cloak style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center" @click.self="modal=false">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:440px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.18)" @click.stop>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
+      <div style="font-size:17px;font-weight:700;color:var(--tx1)" x-text="editId?'Edit User':'Add User'"></div>
+      <button @click="modal=false" style="background:none;border:none;cursor:pointer;color:var(--tx3);padding:4px">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+      </button>
+    </div>
+
+    <div x-show="err" style="background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;border-radius:8px;padding:10px 13px;font-size:13px;margin-bottom:16px" x-text="err"></div>
+
+    <!-- Username (only for new) -->
+    <div x-show="!editId" style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px">Username</label>
+      <input type="text" x-model="form.username" placeholder="Enter username" style="width:100%;padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;outline:none;background:var(--bg)" @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor='var(--br)'"/>
+    </div>
+
+    <!-- Editing: show current username as label -->
+    <div x-show="editId" style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px">Username</label>
+      <div style="padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;color:var(--tx2);background:#f9fafb" x-text="form.username"></div>
+    </div>
+
+    <!-- Email -->
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px">Email Address</label>
+      <input type="email" x-model="form.email" placeholder="user@example.com (used for password recovery)" style="width:100%;padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;outline:none;background:var(--bg)" @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor='var(--br)'"/>
+    </div>
+
+    <!-- Role -->
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px">Role</label>
+      <select x-model="form.role" style="width:100%;padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;outline:none;background:var(--bg);cursor:pointer" @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor='var(--br)'">
+        <option value="normal">Normal — view all + restore &amp; download only</option>
+        <option value="admin">Admin — full read/write access</option>
+        <option value="super_admin">Super Admin — all access including user management</option>
+      </select>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:5px" x-show="form.role==='normal'">Can view everything, create restores, and download files from explorer.</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:5px" x-show="form.role==='admin'">Full CRUD on all resources. Cannot manage users.</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:5px" x-show="form.role==='super_admin'">All permissions including creating and managing users.</div>
+    </div>
+
+    <!-- Password -->
+    <div style="margin-bottom:22px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px" x-text="editId?'New Password (leave blank to keep)':'Password'"></label>
+      <input type="password" x-model="form.password" :placeholder="editId?'Leave blank to keep current':'At least 6 characters'" style="width:100%;padding:10px 13px;border:1.5px solid var(--br);border-radius:8px;font-size:13.5px;outline:none;background:var(--bg)" @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor='var(--br)'"/>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-sm btn-secondary" @click="modal=false">Cancel</button>
+      <button class="btn btn-primary" @click="save()" :disabled="busy">
+        <span x-show="!busy" x-text="editId?'Save Changes':'Create User'"></span>
+        <span x-show="busy">Saving…</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function usersPage() {
+  return {
+    users: [],
+    callerId: '',
+    modal: false, editId: null, busy: false, err: '',
+    form: {username:'', email:'', role:'normal', password:''},
+
+    async init() {
+      // guard against double-init using a DOM attribute on this element
+      if (this.$el.dataset.dvInit) return;
+      this.$el.dataset.dvInit = '1';
+      try {
+        const [me, list] = await Promise.all([apiFetch('/profile'), apiFetch('/users')]);
+        this.callerId = me.id;
+        this.users = [...new Map(list.map(u => [String(u.id), u])).values()];
+      } catch(e) {
+        console.error('usersPage init:', e);
+      }
+    },
+
+    openNew() {
+      this.editId = null;
+      this.form = {username:'', email:'', role:'normal', password:''};
+      this.err = '';
+      this.modal = true;
+    },
+
+    openEdit(u) {
+      this.editId = u.id;
+      this.form = {username: u.username, email: u.email||'', role: u.role, password: ''};
+      this.err = '';
+      this.modal = true;
+    },
+
+    async save() {
+      this.err = '';
+      this.busy = true;
+      try {
+        if (this.editId) {
+          const body = {role: this.form.role, email: this.form.email};
+          if (this.form.password.trim()) body.password = this.form.password;
+          await apiFetch('/users/'+this.editId, {method:'PUT', body});
+        } else {
+          await apiFetch('/users', {method:'POST', body:{
+            username: this.form.username.trim(),
+            password: this.form.password,
+            email:    this.form.email.trim(),
+            role:     this.form.role
+          }});
+        }
+        const list = await apiFetch('/users');
+        this.users = [...new Map(list.map(u => [String(u.id), u])).values()];
+        this.modal = false;
+      } catch(e) {
+        this.err = e.message;
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async del(u) {
+      if (!confirm('Delete user "'+u.username+'"? This cannot be undone.')) return;
+      try {
+        await apiFetch('/users/'+u.id, {method:'DELETE'});
+        const list = await apiFetch('/users');
+        this.users = [...new Map(list.map(u => [String(u.id), u])).values()];
+      } catch(e) {
+        alert(e.message);
+      }
+    },
+
+    fmtDate(ts) {
+      if (!ts) return '—';
+      return new Date(ts).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+    }
+  };
+}
+</script>
+{{end}}

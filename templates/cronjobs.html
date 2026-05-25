@@ -1,0 +1,221 @@
+{{define "cron-table"}}
+{{if .Jobs}}
+<div class="tw"><table>
+  <thead><tr>
+    <th>Name</th><th>Source → Dest</th><th>Schedule</th>
+    <th>Next Run</th><th>Last Run</th><th>Enabled</th><th></th>
+  </tr></thead>
+  <tbody>
+  {{range .Jobs}}
+  {{$srcName := .SourceID}}{{range $.Sources}}{{if eq .ID $srcName}}{{$srcName = .Name}}{{end}}{{end}}
+  {{$dstName := .DestinationID}}{{range $.Dests}}{{if eq .ID $dstName}}{{$dstName = .Name}}{{end}}{{end}}
+  <tr>
+    <td>
+      <div style="font-weight:500">{{.Name}}</div>
+      {{if .Label}}<div style="font-size:11px;color:var(--tx3)">{{.Label}}</div>{{end}}
+      {{if eq .RedisMode "rdb"}}<div style="font-size:10px;color:var(--ac)">RDB Snapshot</div>{{end}}
+      {{if .HeartbeatURL}}<div style="font-size:10px;color:var(--ok);display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--ok);display:inline-block"></span>Heartbeat</div>{{end}}
+    </td>
+    <td style="font-size:11.5px;color:var(--tx2)">
+      <div>{{$srcName}}</div>
+      <div style="color:var(--tx3)">→ {{$dstName}}</div>
+    </td>
+    <td class="mono" style="font-size:11.5px">{{.CronExpression}}</td>
+    <td style="font-size:11.5px;color:var(--tx3)">{{fmtTimePtr .NextRunAt}}</td>
+    <td style="font-size:11.5px;color:var(--tx3)">{{fmtTimePtr .LastRunAt}}</td>
+    <td>
+      <label class="tgl" onclick="cronToggle('{{.ID}}');return false">
+        <input type="checkbox" {{if .Enabled}}checked{{end}} style="pointer-events:none"/>
+        <span class="tgl-sl"></span>
+      </label>
+    </td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-xs" onclick="cronEdit('{{.ID}}')" style="margin-right:4px">Edit</button>
+      <button class="btn btn-secondary btn-xs" onclick="cronRun('{{.ID}}')" style="margin-right:4px">Run</button>
+      <button class="btn btn-danger btn-xs" onclick="cronDel('{{.ID}}','{{.Name}}')">Del</button>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table></div>
+{{else}}
+<div class="empty">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:.3"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+  <div style="font-size:12px">No cron jobs yet</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "body"}}
+<div id="cron-page" x-data="cronPage()" @keydown.escape.window="modal=false">
+  <div class="sh-hd">
+    <div class="sh-title">Cron Jobs ({{len .Data.Jobs}})</div>
+    <button class="btn btn-primary btn-sm" onclick="cronOpenNew()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      New Job
+    </button>
+  </div>
+
+  <div class="card" style="padding:0;margin-bottom:16px">
+    <div id="cron-list">{{template "cron-table" .Data}}</div>
+  </div>
+
+  <div class="backdrop" x-show="modal" x-cloak @click.self="modal=false" style="display:none">
+    <div class="modal">
+      <div class="modal-hd">
+        <div class="modal-title" x-text="editId?'Edit Cron Job':'New Cron Job'"></div>
+        <button class="btn btn-ghost btn-xs" @click="modal=false" style="padding:3px 6px">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="fr">
+          <div class="fg"><label>Job Name</label><input x-model="f.name" placeholder="nightly-backup"/></div>
+          <div class="fg"><label>Label <span style="color:var(--tx3)">(optional)</span></label><input x-model="f.label" placeholder="daily"/></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>Database Source</label>
+            <select x-model="f.source_id" @change="f.redis_mode=''">
+              <option value="">— Select source —</option>
+              {{range .Data.Sources}}
+              <option value="{{.ID}}" data-dbtype="{{.DBType}}">{{.Name}} ({{.DBType}})</option>
+              {{end}}
+            </select>
+          </div>
+          <div class="fg"><label>Storage Destination</label>
+            <select x-model="f.destination_id">
+              <option value="">— Select destination —</option>
+              {{range .Data.Dests}}
+              <option value="{{.ID}}">{{.Name}} ({{.StorageType}})</option>
+              {{end}}
+            </select>
+          </div>
+        </div>
+
+        <!-- Redis format selector — only shown when a Redis source is selected -->
+        <div x-show="isRedis()" style="margin-top:8px">
+          <label>Redis Backup Format</label>
+          <div class="mode-pick" style="margin-top:6px">
+            <div :class="'mode-opt'+(f.redis_mode!='rdb'?' sel':'')" @click="f.redis_mode=''">
+              <input type="radio" :checked="f.redis_mode!='rdb'" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="f.redis_mode!='rdb'?'color:var(--ac)':''">NDJSON</div>
+                <div class="mode-opt-sub">per-key, current DB — works with all Redis</div>
+              </div>
+            </div>
+            <div :class="'mode-opt'+(f.redis_mode=='rdb'?' sel':'')" @click="f.redis_mode='rdb'">
+              <input type="radio" :checked="f.redis_mode=='rdb'" style="width:auto;flex-shrink:0"/>
+              <div>
+                <div class="mode-opt-title" :style="f.redis_mode=='rdb'?'color:var(--ac)':''">RDB Snapshot</div>
+                <div class="mode-opt-sub">all databases, binary — self-hosted Redis only</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fg" style="margin-top:8px">
+          <label>Cron Expression <span style="color:var(--tx3)">(5-field: min hour dom mon dow)</span></label>
+          <input x-model="f.cron_expression" placeholder="0 2 * * *" class="mono"/>
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-xs" @click="f.cron_expression='0 * * * *'">Hourly</button>
+            <button type="button" class="btn btn-ghost btn-xs" @click="f.cron_expression='0 2 * * *'">Daily 2am</button>
+            <button type="button" class="btn btn-ghost btn-xs" @click="f.cron_expression='0 2 * * 0'">Weekly Sun</button>
+            <button type="button" class="btn btn-ghost btn-xs" @click="f.cron_expression='0 2 1 * *'">Monthly</button>
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>Folder Pattern</label><input x-model="f.folder_pattern" placeholder="{source}/{date}"/></div>
+          <div class="fg"><label>Filename Pattern</label><input x-model="f.filename_pattern" placeholder="{source}_{timestamp}"/></div>
+        </div>
+        <div class="fg" style="margin-top:8px">
+          <label>Notification Channels <span style="color:var(--tx3)">(optional)</span></label>
+          <select @change="cronAddChannel($event.target.value);$event.target.value=''">
+            <option value="">+ Add notification channel…</option>
+            {{range .Data.Channels}}
+            <option value="{{.ID}}" x-show="!f.notification_channel_ids.includes('{{.ID}}')">{{.Name}} ({{.Type}})</option>
+            {{end}}
+          </select>
+          <div x-show="f.notification_channel_ids.length>0"
+               style="margin-top:6px;padding:8px 10px;border:1px solid var(--br);border-radius:var(--r);background:var(--bg2);display:flex;flex-wrap:wrap;gap:6px;min-height:36px">
+            <template x-for="id in f.notification_channel_ids" :key="id">
+              <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 6px 3px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--br);font-size:12px">
+                <span x-text="_cronNotifChannels[id]?.name||id"></span>
+                <span x-text="_cronNotifChannels[id]?.type" style="font-size:10px;color:var(--tx3);text-transform:uppercase"></span>
+                <button type="button" @click="f.notification_channel_ids=f.notification_channel_ids.filter(x=>x!==id)" style="background:none;border:none;cursor:pointer;color:var(--tx3);padding:0 2px;line-height:1;font-size:15px">&times;</button>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:8px">
+          <label>Heartbeat URL <span style="color:var(--tx3)">(optional — pinged on start/success/fail)</span></label>
+          <input x-model="f.heartbeat_url" placeholder="https://hc-ping.com/your-uuid"/>
+          <div style="font-size:11px;color:var(--tx3);margin-top:4px">Compatible with healthchecks.io, Cronitor, Better Uptime, and any service that accepts GET pings. Appends <code style="background:var(--bg2);padding:1px 4px;border-radius:3px">/start</code> and <code style="background:var(--bg2);padding:1px 4px;border-radius:3px">/fail</code> automatically.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+          <label class="tgl" style="width:34px;margin-bottom:0"><input type="checkbox" x-model="f.compress"/><span class="tgl-sl"></span></label>
+          <span style="font-size:12.5px;color:var(--tx2)">Compress (.tar.gz)</span>
+          <span style="flex:1"></span>
+          <label class="tgl" style="width:34px;margin-bottom:0"><input type="checkbox" x-model="f.enabled"/><span class="tgl-sl"></span></label>
+          <span style="font-size:12.5px;color:var(--tx2)">Enabled</span>
+        </div>
+        <div x-show="err" class="hint" style="color:var(--er);margin-top:8px" x-text="err"></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" @click="modal=false">Cancel</button>
+        <button class="btn btn-primary" @click="save()" :disabled="busy">
+          <span x-show="busy" class="spin" style="width:12px;height:12px"></span>
+          <span x-text="busy?'Saving…':'Save Job'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const _cronSrcTypes = {
+  {{range .Data.Sources}}'{{.ID}}':'{{.DBType}}',{{end}}
+};
+const _cronNotifChannels = {
+  {{range .Data.Channels}}'{{.ID}}':{name:'{{.Name}}',type:'{{.Type}}'},{{end}}
+};
+
+function cronPage(){
+  const blank={name:'',source_id:'',destination_id:'',label:'',compress:true,folder_pattern:'',filename_pattern:'',cron_expression:'0 2 * * *',enabled:true,redis_mode:'',heartbeat_url:'',notification_channel_ids:[]};
+  return{
+    modal:false,busy:false,err:'',editId:null,f:{...blank},
+    isRedis(){return _cronSrcTypes[this.f.source_id]==='redis';},
+    cronAddChannel(id){if(id&&!this.f.notification_channel_ids.includes(id))this.f.notification_channel_ids.push(id);},
+    openNew(){this.f={...blank};this.editId=null;this.err='';this.modal=true;},
+    openEdit(item){
+      this.f={...blank,...item,redis_mode:item.redis_mode||'',heartbeat_url:item.heartbeat_url||'',notification_channel_ids:item.notification_channel_ids||[]};
+      this.editId=item.id;this.err='';this.modal=true;
+    },
+    async save(){
+      if(!this.f.name.trim()||!this.f.source_id||!this.f.destination_id||!this.f.cron_expression.trim()){this.err='Name, source, destination and schedule required';return;}
+      this.busy=true;this.err='';
+      try{
+        if(this.editId) await apiFetch(`/cronjobs/${this.editId}`,{method:'PUT',body:{...this.f,id:this.editId}});
+        else            await apiFetch('/cronjobs',{method:'POST',body:this.f});
+        this.modal=false;refresh('/partials/cronjobs','#cron-list');
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    }
+  };
+}
+
+function cronOpenNew(){
+  const pg=Alpine.$data(document.getElementById('cron-page'));
+  if(pg) pg.openNew();
+}
+
+async function cronEdit(id){
+  try{
+    const item=await apiFetch(`/cronjobs/${id}`);
+    Alpine.$data(document.getElementById('cron-page')).openEdit(item);
+  }catch(e){console.error('cronEdit:',e);}
+}
+
+function cronDel(id,name){if(!confirm(`Delete "${name}"?`))return;apiFetch(`/cronjobs/${id}`,{method:'DELETE'}).then(()=>refresh('/partials/cronjobs','#cron-list'));}
+function cronToggle(id){apiFetch(`/cronjobs/${id}/toggle`,{method:'POST'}).then(()=>refresh('/partials/cronjobs','#cron-list'));}
+function cronRun(id){apiFetch(`/cronjobs/${id}/run`,{method:'POST'}).then(()=>{alert('Job triggered — check Backup Jobs.');});}
+</script>
+{{end}}

@@ -1,0 +1,322 @@
+{{template "base.html" .}}
+{{define "body"}}
+<style>
+[x-cloak]{display:none!important}
+.set-card{background:#fff;border:1px solid var(--br);border-radius:12px;padding:26px;margin-bottom:18px}
+.set-title{font-size:14px;font-weight:700;color:var(--tx);margin-bottom:4px}
+.set-sub{font-size:12px;color:var(--tx3);margin-bottom:20px}
+.set-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.env-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.env-table th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--br)}
+.env-table td{padding:10px 12px;border-bottom:1px solid var(--br);vertical-align:top}
+.env-table tr:last-child td{border-bottom:none}
+.env-name{font-family:var(--mono);font-size:12px;color:var(--ac);font-weight:600}
+.warn-box{background:#fefce8;border:1.5px solid #fde68a;color:#92400e;border-radius:8px;padding:12px 14px;font-size:12.5px;display:flex;gap:10px;align-items:flex-start}
+.ok-box{background:#f0fdf4;border:1.5px solid #bbf7d0;color:#166534;border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+.err-box{background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+.drop-zone{border:2px dashed var(--br);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg)}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--ac);background:var(--ac-dim)}
+.check-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer}
+.check-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--ac);cursor:pointer}
+</style>
+
+<div x-data="settingsPage()" style="max-width:820px">
+
+  <!-- Timezone Card -->
+  <div class="set-card">
+    <div class="set-title">Server Timezone</div>
+    <div class="set-sub">All timestamps in notifications and logs will use this timezone.</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div class="fg" style="flex:1;min-width:220px;margin:0">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:6px">Timezone</label>
+        <select x-model="timezone" style="width:100%;padding:9px 12px;border:1.5px solid var(--br);border-radius:8px;font-size:13px;outline:none;background:var(--bg)">
+          <optgroup label="UTC">
+            <option value="UTC">UTC</option>
+          </optgroup>
+          <optgroup label="Asia">
+            <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
+            <option value="Asia/Kolkata">Asia/Mumbai (IST, UTC+5:30)</option>
+            <option value="Asia/Dubai">Asia/Dubai (GST, UTC+4)</option>
+            <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST, UTC+9)</option>
+            <option value="Asia/Shanghai">Asia/Shanghai (CST, UTC+8)</option>
+            <option value="Asia/Seoul">Asia/Seoul (KST, UTC+9)</option>
+            <option value="Asia/Bangkok">Asia/Bangkok (ICT, UTC+7)</option>
+            <option value="Asia/Jakarta">Asia/Jakarta (WIB, UTC+7)</option>
+            <option value="Asia/Karachi">Asia/Karachi (PKT, UTC+5)</option>
+            <option value="Asia/Dhaka">Asia/Dhaka (BST, UTC+6)</option>
+            <option value="Asia/Colombo">Asia/Colombo (SLST, UTC+5:30)</option>
+            <option value="Asia/Kathmandu">Asia/Kathmandu (NPT, UTC+5:45)</option>
+            <option value="Asia/Tashkent">Asia/Tashkent (UZT, UTC+5)</option>
+            <option value="Asia/Riyadh">Asia/Riyadh (AST, UTC+3)</option>
+            <option value="Asia/Tehran">Asia/Tehran (IRST, UTC+3:30)</option>
+            <option value="Asia/Beirut">Asia/Beirut (EET, UTC+2)</option>
+            <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur (MYT, UTC+8)</option>
+            <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (ICT, UTC+7)</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option value="Europe/London">Europe/London (GMT/BST)</option>
+            <option value="Europe/Paris">Europe/Paris (CET/CEST, UTC+1/+2)</option>
+            <option value="Europe/Berlin">Europe/Berlin (CET/CEST, UTC+1/+2)</option>
+            <option value="Europe/Moscow">Europe/Moscow (MSK, UTC+3)</option>
+            <option value="Europe/Istanbul">Europe/Istanbul (TRT, UTC+3)</option>
+            <option value="Europe/Amsterdam">Europe/Amsterdam (CET/CEST)</option>
+            <option value="Europe/Rome">Europe/Rome (CET/CEST)</option>
+            <option value="Europe/Madrid">Europe/Madrid (CET/CEST)</option>
+            <option value="Europe/Athens">Europe/Athens (EET/EEST, UTC+2/+3)</option>
+            <option value="Europe/Warsaw">Europe/Warsaw (CET/CEST)</option>
+            <option value="Europe/Zurich">Europe/Zurich (CET/CEST)</option>
+            <option value="Europe/Helsinki">Europe/Helsinki (EET/EEST)</option>
+            <option value="Europe/Bucharest">Europe/Bucharest (EET/EEST)</option>
+          </optgroup>
+          <optgroup label="Americas">
+            <option value="America/New_York">America/New_York (EST/EDT, UTC-5/-4)</option>
+            <option value="America/Chicago">America/Chicago (CST/CDT, UTC-6/-5)</option>
+            <option value="America/Denver">America/Denver (MST/MDT, UTC-7/-6)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT, UTC-8/-7)</option>
+            <option value="America/Toronto">America/Toronto (EST/EDT)</option>
+            <option value="America/Vancouver">America/Vancouver (PST/PDT)</option>
+            <option value="America/Sao_Paulo">America/Sao_Paulo (BRT, UTC-3)</option>
+            <option value="America/Mexico_City">America/Mexico_City (CST/CDT)</option>
+            <option value="America/Bogota">America/Bogota (COT, UTC-5)</option>
+            <option value="America/Lima">America/Lima (PET, UTC-5)</option>
+            <option value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires (ART, UTC-3)</option>
+            <option value="America/Santiago">America/Santiago (CLT/CLST)</option>
+            <option value="America/Caracas">America/Caracas (VET, UTC-4)</option>
+            <option value="America/Anchorage">America/Anchorage (AKST/AKDT)</option>
+            <option value="Pacific/Honolulu">Pacific/Honolulu (HST, UTC-10)</option>
+          </optgroup>
+          <optgroup label="Africa">
+            <option value="Africa/Cairo">Africa/Cairo (EET, UTC+2)</option>
+            <option value="Africa/Lagos">Africa/Lagos (WAT, UTC+1)</option>
+            <option value="Africa/Nairobi">Africa/Nairobi (EAT, UTC+3)</option>
+            <option value="Africa/Johannesburg">Africa/Johannesburg (SAST, UTC+2)</option>
+            <option value="Africa/Casablanca">Africa/Casablanca (WET/WEST)</option>
+          </optgroup>
+          <optgroup label="Australia &amp; Pacific">
+            <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT, UTC+10/+11)</option>
+            <option value="Australia/Melbourne">Australia/Melbourne (AEST/AEDT)</option>
+            <option value="Australia/Brisbane">Australia/Brisbane (AEST, UTC+10)</option>
+            <option value="Australia/Perth">Australia/Perth (AWST, UTC+8)</option>
+            <option value="Pacific/Auckland">Pacific/Auckland (NZST/NZDT)</option>
+            <option value="Pacific/Fiji">Pacific/Fiji (FJT, UTC+12)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <button class="btn btn-primary" @click="saveTz()" :disabled="tzSaving">
+          <span x-show="!tzSaving">Save Timezone</span>
+          <span x-show="tzSaving">Saving…</span>
+        </button>
+      </div>
+    </div>
+    <div x-show="tzMsg" x-cloak style="margin-top:10px;font-size:12.5px" :style="tzOk?'color:var(--ok)':'color:var(--er)'" x-text="tzMsg"></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--tx3)">Current server timezone: <strong x-text="timezone"></strong></div>
+  </div>
+
+  <!-- Export Card -->
+  <div class="set-card">
+    <div class="set-title">Export Configuration</div>
+    <div class="set-sub">Download a backup of your DataVault configuration as a JSON file.</div>
+
+    <label class="check-row">
+      <input type="checkbox" x-model="includeUsers"/>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--tx)">Include user accounts</div>
+        <div style="font-size:11.5px;color:var(--tx3);margin-top:1px">Exports usernames and hashed passwords. Keep this file secure.</div>
+      </div>
+    </label>
+
+    <div x-show="includeUsers" class="warn-box" style="margin-bottom:16px">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M8 2l6 11H2L8 2z"/><path d="M8 7v3M8 11.5v.5"/></svg>
+      <span>This export contains credential hashes. Store it securely and do not share it publicly.</span>
+    </div>
+
+    <button class="btn btn-primary" @click="exportConfig()" :disabled="exporting">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v9M4 9l4 4 4-4"/><path d="M2 13h12"/></svg>
+      <span x-show="!exporting">Download Backup</span>
+      <span x-show="exporting">Exporting…</span>
+    </button>
+  </div>
+
+  <!-- Import Card -->
+  <div class="set-card">
+    <div class="set-title">Import Configuration</div>
+    <div class="set-sub">Restore from a previously exported DataVault backup file. This will <strong>overwrite</strong> existing data in each restored table.</div>
+
+    <div x-show="importOk" class="ok-box" x-cloak>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:inline;margin-right:6px"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+      <span x-text="importOk"></span>
+    </div>
+    <div x-show="importErr" class="err-box" x-cloak>
+      <span x-text="importErr"></span>
+    </div>
+
+    <div class="drop-zone" :class="dragging?'drag':''"
+         @click="$refs.fileInput.click()"
+         @dragover.prevent="dragging=true"
+         @dragleave="dragging=false"
+         @drop.prevent="onDrop($event)">
+      <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="var(--tx3)" stroke-width="1.4" stroke-linecap="round" style="margin:0 auto 10px;display:block"><path d="M8 10V3M5 6l3-3 3 3"/><path d="M2 11v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1"/></svg>
+      <div style="font-size:13px;font-weight:600;color:var(--tx2)" x-text="fileName||'Click or drag a backup file here'"></div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:4px">Accepts .json files exported from DataVault</div>
+      <input type="file" accept=".json" x-ref="fileInput" style="display:none" @change="onFile($event)"/>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn btn-primary" @click="importConfig()" :disabled="!fileData||importing">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 13V4M4 7l4-4 4 4"/><path d="M2 13h12"/></svg>
+        <span x-show="!importing">Restore Backup</span>
+        <span x-show="importing">Restoring…</span>
+      </button>
+      <button class="btn btn-secondary" @click="clearFile()" x-show="fileData" x-cloak>Clear</button>
+    </div>
+  </div>
+
+  <!-- Emergency Access Card -->
+  <div class="set-card">
+    <div class="set-title">Emergency Access &amp; Seeding</div>
+    <div class="set-sub">Environment variables you can set before starting the container to recover access or seed an initial admin account.</div>
+
+    <table class="env-table">
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Purpose</th>
+          <th>Condition</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="env-name">ADMIN_USERNAME</span></td>
+          <td>Username for the seeded super admin account</td>
+          <td style="color:var(--tx3)">Only applied when no users exist yet</td>
+        </tr>
+        <tr>
+          <td><span class="env-name">ADMIN_PASSWORD</span></td>
+          <td>Password for the seeded super admin (used with ADMIN_USERNAME)</td>
+          <td style="color:var(--tx3)">Only applied when no users exist yet</td>
+        </tr>
+        <tr>
+          <td><span class="env-name">RESET_ADMIN_PASSWORD</span></td>
+          <td>Resets the first super admin's password to this value on every startup</td>
+          <td style="color:var(--ac);font-weight:600">⚠ Remove immediately after use</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="warn-box" style="margin-top:16px">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><path d="M8 2l6 11H2L8 2z"/><path d="M8 7v3M8 11.5v.5"/></svg>
+      <span><strong>RESET_ADMIN_PASSWORD</strong> is applied on every container start while the var is set. Remove it from your docker-compose.yml or environment immediately after recovering access.</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function settingsPage() {
+  return {
+    // Timezone
+    timezone: '{{if .Data}}{{.Data.Timezone}}{{else}}UTC{{end}}',
+    tzSaving: false, tzMsg: '', tzOk: false,
+
+    async saveTz() {
+      this.tzSaving = true; this.tzMsg = '';
+      try {
+        await apiFetch('/settings', {method:'PUT', body:{timezone: this.timezone}});
+        this.tzOk = true;
+        this.tzMsg = '✓ Timezone saved. All future timestamps will use ' + this.timezone + '.';
+      } catch(e) {
+        this.tzOk = false; this.tzMsg = '✗ ' + e.message;
+      } finally { this.tzSaving = false; }
+    },
+
+    // Export / Import
+    includeUsers: false,
+    exporting: false,
+    fileData: null,
+    fileName: '',
+    importing: false,
+    dragging: false,
+    importOk: '',
+    importErr: '',
+
+    async exportConfig() {
+      this.exporting = true;
+      try {
+        const url = '/api/config/export' + (this.includeUsers ? '?include_users=true' : '');
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('Export failed');
+        const blob = await r.blob();
+        const cd = r.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename=([^\s;]+)/);
+        const name = match ? match[1] : 'datavault-config.json';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch(e) {
+        alert('Export failed: ' + e.message);
+      } finally {
+        this.exporting = false;
+      }
+    },
+
+    onFile(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      this.loadFile(f);
+    },
+
+    onDrop(e) {
+      this.dragging = false;
+      const f = e.dataTransfer.files[0];
+      if (!f) return;
+      this.loadFile(f);
+    },
+
+    loadFile(f) {
+      this.importOk = ''; this.importErr = '';
+      this.fileName = f.name;
+      const reader = new FileReader();
+      reader.onload = (e) => { this.fileData = e.target.result; };
+      reader.readAsText(f);
+    },
+
+    clearFile() {
+      this.fileData = null;
+      this.fileName = '';
+      this.importOk = '';
+      this.importErr = '';
+      if (this.$refs.fileInput) this.$refs.fileInput.value = '';
+    },
+
+    async importConfig() {
+      if (!this.fileData) return;
+      this.importOk = ''; this.importErr = '';
+      let parsed;
+      try { parsed = JSON.parse(this.fileData); }
+      catch(e) { this.importErr = 'Invalid JSON file.'; return; }
+      if (!confirm('This will overwrite existing data in the restored tables. Continue?')) return;
+      this.importing = true;
+      try {
+        const r = await fetch('/api/config/import', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(parsed)
+        });
+        const data = await r.json();
+        if (!r.ok) { this.importErr = data.detail || 'Import failed'; return; }
+        this.importOk = data.message + ' Refresh the page to see updated data.';
+        this.clearFile();
+      } catch(e) {
+        this.importErr = e.message;
+      } finally {
+        this.importing = false;
+      }
+    }
+  };
+}
+</script>
+{{end}}

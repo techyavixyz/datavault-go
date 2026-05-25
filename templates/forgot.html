@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forgot Credentials — DataVault</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;background:#fff}
+
+.panel-left{
+  width:420px;flex-shrink:0;
+  background:linear-gradient(150deg,#991b1b 0%,#dc2626 50%,#ef4444 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:56px 44px;position:relative;overflow:hidden;
+}
+.panel-left::before{content:'';position:absolute;width:340px;height:340px;border-radius:50%;background:rgba(255,255,255,.06);top:-100px;right:-100px;}
+.panel-left::after{content:'';position:absolute;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.06);bottom:-80px;left:-80px;}
+.brand-icon{width:68px;height:68px;background:rgba(255,255,255,.15);border-radius:18px;display:flex;align-items:center;justify-content:center;margin-bottom:22px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);}
+.brand-name{font-size:30px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:4px}
+.brand-sub{font-size:10.5px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:44px}
+.tagline{font-size:16px;color:rgba(255,255,255,.9);line-height:1.65;text-align:center;max-width:290px;font-weight:300}
+.tip-list{margin-top:40px;display:flex;flex-direction:column;gap:16px;width:100%;max-width:290px}
+.tip{display:flex;align-items:flex-start;gap:12px}
+.tip-icon{width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tip-text{color:rgba(255,255,255,.8);font-size:13.5px;line-height:1.5}
+.panel-left .ver{position:absolute;bottom:20px;left:44px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.5px}
+
+.panel-right{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 40px;background:#fff;}
+.form-box{width:100%;max-width:390px}
+.form-heading{font-size:26px;font-weight:700;color:#111;letter-spacing:-.6px;margin-bottom:6px}
+.form-sub{font-size:14px;color:#9ca3af;margin-bottom:32px;line-height:1.5}
+.fg{margin-bottom:20px}
+.fg label{display:block;font-size:12.5px;font-weight:600;color:#374151;margin-bottom:7px;letter-spacing:.1px}
+.fg input{width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;color:#111;outline:none;transition:border-color .15s,box-shadow .15s;background:#f9fafb;}
+.fg input:focus{border-color:#dc2626;background:#fff;box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+.fg input::placeholder{color:#c9cdd4}
+.btn-submit{width:100%;padding:13px;background:#dc2626;color:#fff;border:none;border-radius:10px;font-size:14.5px;font-weight:700;cursor:pointer;letter-spacing:.1px;transition:background .15s,transform .1s,box-shadow .15s;box-shadow:0 4px 14px rgba(220,38,38,.35);margin-top:4px;}
+.btn-submit:hover{background:#b91c1c;box-shadow:0 6px 20px rgba(220,38,38,.4)}
+.btn-submit:active{transform:scale(.99)}
+.btn-submit:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.err-box{background:#fef2f2;border:1.5px solid #fecaca;color:#dc2626;border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:22px;display:flex;align-items:flex-start;gap:9px;}
+.ok-box{background:#f0fdf4;border:1.5px solid #bbf7d0;color:#166534;border-radius:10px;padding:16px 14px;font-size:13.5px;margin-bottom:22px;display:flex;align-items:flex-start;gap:10px;line-height:1.55;}
+.footer-lnk{text-align:center;margin-top:24px;font-size:13.5px;color:#9ca3af}
+.footer-lnk a{color:#dc2626;text-decoration:none;font-weight:700}
+.footer-lnk a:hover{text-decoration:underline}
+@media(max-width:680px){.panel-left{display:none}}
+</style>
+</head>
+<body x-data="forgotPage()">
+<div class="panel-left">
+  <div class="brand-icon">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="12" cy="6" rx="9" ry="3.5"/>
+      <path d="M3 6v4c0 1.93 4.03 3.5 9 3.5s9-1.57 9-3.5V6"/>
+      <path d="M3 10v5c0 1.93 4.03 3.5 9 3.5s9-1.57 9-3.5v-5"/>
+      <path d="M3 15v4c0 1.93 4.03 3.5 9 3.5s9-1.57 9-3.5v-4"/>
+    </svg>
+  </div>
+  <div class="brand-name">DataVault</div>
+  <div class="brand-sub">Backup Manager</div>
+  <div class="tagline">Enter the email associated with your account and we'll send your login credentials.</div>
+  <div class="tip-list">
+    <div class="tip">
+      <div class="tip-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round"><path d="M2 4l6 5 6-5"/><rect x="1" y="3" width="14" height="10" rx="1.5"/></svg>
+      </div>
+      <div class="tip-text">A temporary password will be emailed to you</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="7" width="10" height="8" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+      </div>
+      <div class="tip-text">Sign in with the temporary password and update it in settings</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      </div>
+      <div class="tip-text">No email on your account? Contact your administrator</div>
+    </div>
+  </div>
+  <div class="ver">v2.0.0-go</div>
+</div>
+
+<div class="panel-right">
+  <div class="form-box">
+    <div class="form-heading">Forgot credentials?</div>
+    <div class="form-sub">Enter your account email and we'll send your username and a temporary password.</div>
+
+    <div x-show="err" class="err-box" x-cloak>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10.5v.5"/></svg>
+      <span x-text="err"></span>
+    </div>
+
+    <div x-show="sent" class="ok-box" x-cloak>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#166534" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+      <span>If an account with that email exists, credentials have been sent. Check your inbox (and spam folder).</span>
+    </div>
+
+    <div x-show="!sent">
+      <div class="fg">
+        <label>Email Address</label>
+        <input type="email" x-model="email" placeholder="you@example.com" autocomplete="email" @keydown.enter="submit()"/>
+      </div>
+      <button class="btn-submit" @click="submit()" :disabled="busy">
+        <span x-show="!busy">Send Credentials</span>
+        <span x-show="busy">Sending…</span>
+      </button>
+    </div>
+
+    <div class="footer-lnk">Remember your credentials? <a href="/signin">Sign in</a></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+<script>
+function forgotPage(){
+  return{
+    email:'',busy:false,err:'',sent:false,
+    async submit(){
+      this.err='';
+      if(!this.email.trim()){this.err='Please enter your email address';return;}
+      this.busy=true;
+      try{
+        const r=await fetch('/api/auth/forgot',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({email:this.email.trim()})
+        });
+        if(!r.ok){const d=await r.json();throw new Error(d.detail||'Request failed');}
+        this.sent=true;
+      }catch(e){this.err=e.message;}finally{this.busy=false;}
+    }
+  };
+}
+</script>
+</body>
+</html>

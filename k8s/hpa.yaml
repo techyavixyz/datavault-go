@@ -1,0 +1,26 @@
+# HPA is intentionally disabled for DataVault.
+# The app uses a JSON file store (/data/db.json) which does not support
+# concurrent writes from multiple pods. Scaling requires migrating to
+# a shared database (PostgreSQL, etc.) first.
+#
+# To re-enable after a DB migration, uncomment below:
+#
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: datavault
+#   namespace: datavault
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: StatefulSet
+#     name: datavault
+#   minReplicas: 1
+#   maxReplicas: 4
+#   metrics:
+#     - type: Resource
+#       resource:
+#         name: cpu
+#         target:
+#           type: Utilization
+#           averageUtilization: 70
