@@ -75,7 +75,7 @@ func runRestore(rec *models.RestoreRecord, backup *models.BackupRecord,
 
 	logf("Starting restore — %s → %s (%s)", backup.FileName, src.Name, src.DBType)
 
-	isRDB := backup.RedisMode == "rdb" && src.DBType == models.DBRedis
+	isRDB := backup.RedisMode == "rdb" && (src.DBType == models.DBRedis || src.DBType == models.DBRedisSentinel)
 	mongoArchiveStreamed := false
 
 	// Resolve URI and ping the target DB before downloading anything.
@@ -240,7 +240,7 @@ func runRestore(rec *models.RestoreRecord, backup *models.BackupRecord,
 	ndjsonPath := filepath.Join(tmpDir, "data.ndjson")
 	logf("Restoring into %s (%s)...", src.Name, src.DBType)
 	switch src.DBType {
-	case models.DBRedis:
+	case models.DBRedis, models.DBRedisSentinel:
 		return restoreRedis(ctx, uri, ndjsonPath)
 	case models.DBPostgres:
 		return restorePostgres(ctx, uri, ndjsonPath)

@@ -149,7 +149,7 @@ func RunBackup(rec *models.BackupRecord, src *models.DatabaseSource,
 			return
 		}
 
-	} else if src.DBType == models.DBRedis && rec.RedisMode == "rdb" {
+	} else if (src.DBType == models.DBRedis || src.DBType == models.DBRedisSentinel) && rec.RedisMode == "rdb" {
 		// ── RDB snapshot ──────────────────────────────────────────────────────
 		backupMode = "rdb"
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -274,7 +274,7 @@ func dbVersion(src *models.DatabaseSource, uri string) string {
 	defer cancel()
 
 	switch src.DBType {
-	case models.DBRedis:
+	case models.DBRedis, models.DBRedisSentinel:
 		rdb, err := newRedisClient(uri)
 		if err != nil {
 			return ""
@@ -345,7 +345,7 @@ func dumpDB(src *models.DatabaseSource, uri, path string, logf func(string, ...a
 	enc := json.NewEncoder(f)
 
 	switch src.DBType {
-	case models.DBRedis:
+	case models.DBRedis, models.DBRedisSentinel:
 		return dumpRedis(ctx, uri, src.TargetDatabase, enc, logf)
 	case models.DBPostgres:
 		return dumpPostgres(ctx, uri, src.TargetDatabase, enc, logf)

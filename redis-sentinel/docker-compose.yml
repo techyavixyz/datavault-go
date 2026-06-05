@@ -1,0 +1,121 @@
+# Standalone Redis Sentinel — host network mode
+#
+# All containers share the host's network namespace directly.
+# No Docker bridge NAT. No shared networks with other compose projects.
+# Works reliably whether DataVault is on the same machine or a remote one.
+#
+# REQUIRED — set HOST_IP to this machine's LAN/public IP before running:
+#   HOST_IP=192.168.1.100 docker compose up -d
+#
+# Ports on the host:
+#   6379        — Redis master
+#   6380        — Redis replica (read-only)
+#   26379-26381 — Sentinel nodes
+#
+# DataVault source URI:
+#   redis-sentinel://<HOST_IP>:26379,<HOST_IP>:26380,<HOST_IP>:26381/mymaster
+
+services:
+
+  redis-master:
+    image: redis:7-alpine
+    container_name: redis-master
+    restart: unless-stopped
+    network_mode: host
+    command: >
+      redis-server
+      --port 6379
+      --bind 0.0.0.0
+      --protected-mode no
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis-replica:
+    image: redis:7-alpine
+    container_name: redis-replica
+    restart: unless-stopped
+    network_mode: host
+    command: >
+      redis-server
+      --port 6380
+      --bind 0.0.0.0
+      --protected-mode no
+      --replicaof 127.0.0.1 6379
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  redis-sentinel-1:
+    image: redis:7-alpine
+    container_name: redis-sentinel-1
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - sh
+      - -c
+      - |
+        [ -z "$$HOST_IP" ] && echo "ERROR: HOST_IP is not set" && exit 1
+        echo "port 26379"                                              > /tmp/sentinel-1.conf
+        echo "sentinel monitor mymaster $$HOST_IP 6379 2"            >> /tmp/sentinel-1.conf
+        echo "sentinel announce-ip $$HOST_IP"                         >> /tmp/sentinel-1.conf
+        echo "sentinel announce-port 26379"                           >> /tmp/sentinel-1.conf
+        echo "sentinel down-after-milliseconds mymaster 5000"        >> /tmp/sentinel-1.conf
+        echo "sentinel failover-timeout mymaster 30000"              >> /tmp/sentinel-1.conf
+        echo "sentinel parallel-syncs mymaster 1"                    >> /tmp/sentinel-1.conf
+        redis-sentinel /tmp/sentinel-1.conf
+    environment:
+      - HOST_IP=${HOST_IP}
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  redis-sentinel-2:
+    image: redis:7-alpine
+    container_name: redis-sentinel-2
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - sh
+      - -c
+      - |
+        [ -z "$$HOST_IP" ] && echo "ERROR: HOST_IP is not set" && exit 1
+        echo "port 26380"                                              > /tmp/sentinel-2.conf
+        echo "sentinel monitor mymaster $$HOST_IP 6379 2"            >> /tmp/sentinel-2.conf
+        echo "sentinel announce-ip $$HOST_IP"                         >> /tmp/sentinel-2.conf
+        echo "sentinel announce-port 26380"                           >> /tmp/sentinel-2.conf
+        echo "sentinel down-after-milliseconds mymaster 5000"        >> /tmp/sentinel-2.conf
+        echo "sentinel failover-timeout mymaster 30000"              >> /tmp/sentinel-2.conf
+        echo "sentinel parallel-syncs mymaster 1"                    >> /tmp/sentinel-2.conf
+        redis-sentinel /tmp/sentinel-2.conf
+    environment:
+      - HOST_IP=${HOST_IP}
+    depends_on:
+      redis-master:
+        condition: service_healthy
+
+  redis-sentinel-3:
+    image: redis:7-alpine
+    container_name: redis-sentinel-3
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - sh
+      - -c
+      - |
+        [ -z "$$HOST_IP" ] && echo "ERROR: HOST_IP is not set" && exit 1
+        echo "port 26381"                                              > /tmp/sentinel-3.conf
+        echo "sentinel monitor mymaster $$HOST_IP 6379 2"            >> /tmp/sentinel-3.conf
+        echo "sentinel announce-ip $$HOST_IP"                         >> /tmp/sentinel-3.conf
+        echo "sentinel announce-port 26381"                           >> /tmp/sentinel-3.conf
+        echo "sentinel down-after-milliseconds mymaster 5000"        >> /tmp/sentinel-3.conf
+        echo "sentinel failover-timeout mymaster 30000"              >> /tmp/sentinel-3.conf
+        echo "sentinel parallel-syncs mymaster 1"                    >> /tmp/sentinel-3.conf
+        redis-sentinel /tmp/sentinel-3.conf
+    environment:
+      - HOST_IP=${HOST_IP}
+    depends_on:
+      redis-master:
+        condition: service_healthy

@@ -107,7 +107,7 @@
               <input type="radio" :checked="f.redis_mode=='rdb'" style="width:auto;flex-shrink:0"/>
               <div>
                 <div class="mode-opt-title" :style="f.redis_mode=='rdb'?'color:var(--ac)':''">RDB Snapshot</div>
-                <div class="mode-opt-sub">all databases, binary — self-hosted Redis only</div>
+                <div class="mode-opt-sub">all databases, binary — self-hosted / Sentinel</div>
               </div>
             </div>
           </div>
@@ -183,7 +183,7 @@ function cronPage(){
   const blank={name:'',source_id:'',destination_id:'',label:'',compress:true,folder_pattern:'',filename_pattern:'',cron_expression:'0 2 * * *',enabled:true,redis_mode:'',heartbeat_url:'',notification_channel_ids:[]};
   return{
     modal:false,busy:false,err:'',editId:null,f:{...blank},
-    isRedis(){return _cronSrcTypes[this.f.source_id]==='redis';},
+    isRedis(){return ['redis','redis_sentinel'].includes(_cronSrcTypes[this.f.source_id]);},
     cronAddChannel(id){if(id&&!this.f.notification_channel_ids.includes(id))this.f.notification_channel_ids.push(id);},
     openNew(){this.f={...blank};this.editId=null;this.err='';this.modal=true;},
     openEdit(item){

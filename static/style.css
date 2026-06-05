@@ -7,7 +7,7 @@
   --ok:#0d9f5f;--ok-dim:rgba(13,159,95,.08);
   --er:#c8102e;--er-dim:rgba(200,16,46,.07);
   --wn:#b45309;--wn-dim:rgba(180,83,9,.08);
-  --redis:#c8102e;--mongo:#0d9f5f;--pg:#1d6fa8;--mysql:#d97706;
+  --redis:#c8102e;--sentinel:#6366f1;--mongo:#0d9f5f;--pg:#1d6fa8;--mysql:#d97706;
   --gcs:#7c3aed;--s3:#d97706;--nfs:#9333ea;--smb:#0369a1;--ssh:#0d9f5f;
   --r:6px;--r2:10px;--r3:12px;
   --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono','Fira Mono',monospace;
@@ -60,6 +60,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);min-height:100
 
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.2px;text-transform:uppercase}
 .b-redis{background:rgba(200,16,46,.08);color:var(--redis)}
+.b-redis_sentinel{background:rgba(99,102,241,.08);color:var(--sentinel)}
 .b-mongodb{background:rgba(13,159,95,.08);color:var(--mongo)}
 .b-postgresql{background:rgba(29,111,168,.08);color:var(--pg)}
 .b-mysql{background:rgba(217,119,6,.08);color:var(--mysql)}

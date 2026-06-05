@@ -181,11 +181,12 @@ function restorePage(){
     allBackups:[], loadingBackups:false,
     dbFilter:'all',
     dbTypes:[
-      {value:'all',    label:'All'},
-      {value:'redis',      label:'Redis'},
-      {value:'mongodb',    label:'MongoDB'},
-      {value:'postgresql', label:'PostgreSQL'},
-      {value:'mysql',      label:'MySQL'},
+      {value:'all',            label:'All'},
+      {value:'redis',          label:'Redis'},
+      {value:'redis_sentinel', label:'Redis Sentinel'},
+      {value:'mongodb',        label:'MongoDB'},
+      {value:'postgresql',     label:'PostgreSQL'},
+      {value:'mysql',          label:'MySQL'},
     ],
     get filteredBackups(){
       if(this.dbFilter==='all') return this.allBackups;

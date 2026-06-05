@@ -40,7 +40,7 @@ func (h *BackupHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "destination not found"})
 		return
 	}
-	if req.RedisMode != "" && src.DBType != models.DBRedis {
+	if req.RedisMode != "" && src.DBType != models.DBRedis && src.DBType != models.DBRedisSentinel {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "redis_mode is only valid for Redis sources"})
 		return
 	}

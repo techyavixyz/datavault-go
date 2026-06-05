@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"datavault/models"
@@ -31,6 +32,21 @@ func ResolveURI(src *models.DatabaseSource, profile *models.CredentialProfile) (
 	}
 
 	switch src.DBType {
+	case models.DBRedisSentinel:
+		if len(src.SentinelAddrs) == 0 {
+			return "", fmt.Errorf("redis_sentinel source requires at least one sentinel address in sentinel_addrs")
+		}
+		if src.SentinelMasterName == "" {
+			return "", fmt.Errorf("redis_sentinel source requires sentinel_master_name")
+		}
+		addrs := strings.Join(src.SentinelAddrs, ",")
+		sentinelPass := url.QueryEscape(src.SentinelPassword)
+		userinfo := ""
+		if pass != "" || sentinelPass != "" {
+			userinfo = url.QueryEscape(pass) + ":" + sentinelPass + "@"
+		}
+		return fmt.Sprintf("redis-sentinel://%s%s/%s", userinfo, addrs, src.SentinelMasterName), nil
+
 	case models.DBRedis:
 		if port == 0 {
 			port = 6379
@@ -82,11 +98,16 @@ func TestConnection(src *models.DatabaseSource, profile *models.CredentialProfil
 		return "", err
 	}
 
+	// Catch URI/db_type mismatch early with a clear message
+	if strings.HasPrefix(uri, "redis-sentinel://") && src.DBType != models.DBRedisSentinel {
+		return "", fmt.Errorf("URI looks like a Redis Sentinel address but Database Type is set to %q — change Database Type to \"redis_sentinel\"", src.DBType)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	switch src.DBType {
-	case models.DBRedis:
+	case models.DBRedis, models.DBRedisSentinel:
 		return testRedis(ctx, uri)
 	case models.DBMongoDB:
 		return testMongo(ctx, uri)

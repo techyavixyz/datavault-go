@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"datavault/models"
@@ -14,6 +16,25 @@ import (
 )
 
 type SourceHandler struct{ Store *store.Store }
+
+func validateSentinelSource(s *models.DatabaseSource) error {
+	if s.DBType != models.DBRedisSentinel {
+		return nil
+	}
+	if s.ConnectionMode == "uri" {
+		if !strings.HasPrefix(s.URI, "redis-sentinel://") {
+			return fmt.Errorf("redis_sentinel source with connection_mode=uri requires a redis-sentinel:// URI")
+		}
+		return nil
+	}
+	if len(s.SentinelAddrs) == 0 {
+		return fmt.Errorf("redis_sentinel source requires at least one address in sentinel_addrs")
+	}
+	if s.SentinelMasterName == "" {
+		return fmt.Errorf("redis_sentinel source requires sentinel_master_name")
+	}
+	return nil
+}
 
 func (h *SourceHandler) List(c *gin.Context) {
 	var rows []models.DatabaseSource
@@ -30,6 +51,10 @@ func (h *SourceHandler) List(c *gin.Context) {
 func (h *SourceHandler) Create(c *gin.Context) {
 	var s models.DatabaseSource
 	if err := c.ShouldBindJSON(&s); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		return
+	}
+	if err := validateSentinelSource(&s); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
 		return
 	}
@@ -58,6 +83,10 @@ func (h *SourceHandler) Update(c *gin.Context) {
 	}
 	var s models.DatabaseSource
 	if err := c.ShouldBindJSON(&s); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		return
+	}
+	if err := validateSentinelSource(&s); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
 		return
 	}

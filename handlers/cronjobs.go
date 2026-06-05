@@ -52,7 +52,7 @@ func (h *CronHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"detail": "source not found"})
 			return
 		}
-		if src.DBType != models.DBRedis {
+		if src.DBType != models.DBRedis && src.DBType != models.DBRedisSentinel {
 			c.JSON(http.StatusBadRequest, gin.H{"detail": "redis_mode is only valid for Redis sources"})
 			return
 		}
@@ -98,7 +98,7 @@ func (h *CronHandler) Update(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"detail": "source not found"})
 			return
 		}
-		if src.DBType != models.DBRedis {
+		if src.DBType != models.DBRedis && src.DBType != models.DBRedisSentinel {
 			c.JSON(http.StatusBadRequest, gin.H{"detail": "redis_mode is only valid for Redis sources"})
 			return
 		}

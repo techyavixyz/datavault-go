@@ -91,7 +91,7 @@
           </label>
           <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:var(--tx2)">
             <input type="radio" x-model="f.redis_mode" value="rdb" style="margin:0;accent-color:var(--pr)"/>
-            RDB Snapshot &nbsp;<span style="color:var(--tx3)">(all databases, binary)</span>
+            RDB Snapshot &nbsp;<span style="color:var(--tx3)">(all databases, binary — self-hosted / Sentinel)</span>
           </label>
         </div>
       </div>
@@ -176,7 +176,7 @@ function backupPage(){
   return{
     f:{source_id:'',destination_id:'',label:'',compress:true,folder_pattern:'',filename_pattern:'',redis_mode:'',notification_channel_ids:[]},
     busy:false,err:'',
-    isRedis(){return _srcTypes[this.f.source_id]==='redis';},
+    isRedis(){return ['redis','redis_sentinel'].includes(_srcTypes[this.f.source_id]);},
     bkAddChannel(id){if(id&&!this.f.notification_channel_ids.includes(id))this.f.notification_channel_ids.push(id);},
     async run(){
       if(!this.f.source_id||!this.f.destination_id){this.err='Select source and destination';return;}

@@ -5,10 +5,11 @@ import "time"
 type DatabaseType string
 
 const (
-	DBRedis      DatabaseType = "redis"
-	DBMongoDB    DatabaseType = "mongodb"
-	DBPostgres   DatabaseType = "postgresql"
-	DBMySQL      DatabaseType = "mysql"
+	DBRedis         DatabaseType = "redis"
+	DBRedisSentinel DatabaseType = "redis_sentinel"
+	DBMongoDB       DatabaseType = "mongodb"
+	DBPostgres      DatabaseType = "postgresql"
+	DBMySQL         DatabaseType = "mysql"
 )
 
 type StorageType string
@@ -52,7 +53,11 @@ type DatabaseSource struct {
 	TargetCollection    string       `json:"target_collection,omitempty"`
 	DockerContainer     string       `json:"docker_container,omitempty"` // MongoDB in Docker: container name/id for mongorestore via docker exec
 	ConnStatus          string       `json:"conn_status,omitempty"` // "connected" | "disconnected"
-	CreatedAt           time.Time    `json:"created_at"`
+	// Redis Sentinel fields — only used when DBType == "redis_sentinel"
+	SentinelMasterName string   `json:"sentinel_master_name,omitempty"`
+	SentinelAddrs      []string `json:"sentinel_addrs,omitempty"`
+	SentinelPassword   string   `json:"sentinel_password,omitempty"` // auth password for the sentinel processes themselves (optional)
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // ── Storage Destinations ──────────────────────────────────────────────────────

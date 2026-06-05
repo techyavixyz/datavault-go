@@ -67,6 +67,7 @@
           <div class="fg"><label>Database Type</label>
             <select x-model="f.db_type" @change="f.credential_profile_id='none'">
               <option value="redis">redis</option>
+              <option value="redis_sentinel">redis sentinel</option>
               <option value="mongodb">mongodb</option>
               <option value="postgresql">postgresql</option>
               <option value="mysql">mysql</option>
@@ -106,13 +107,33 @@
               {{end}}
             </select>
           </div>
-          <div class="fr">
+          <div class="fr" x-show="f.db_type !== 'redis_sentinel'">
             <div class="fg"><label>Host</label><input x-model="f.host" placeholder="hostname or IP"/></div>
             <div class="fg"><label>Port</label><input type="number" x-model="f.port" :placeholder="defPort()"/></div>
           </div>
         </div>
+        <!-- Redis Sentinel fields: shown when sentinel selected in profile mode -->
+        <div x-show="f.db_type==='redis_sentinel' && f.connection_mode==='profile'" style="display:flex;flex-direction:column;gap:10px;border:1px solid var(--br);border-radius:var(--r);padding:12px;background:rgba(99,102,241,.03)">
+          <div style="font-size:11px;font-weight:600;color:var(--sentinel);text-transform:uppercase;letter-spacing:.4px">Sentinel Configuration</div>
+          <div class="fg" style="margin:0">
+            <label>Master Name</label>
+            <input x-model="f.sentinel_master_name" placeholder="mymaster"/>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Sentinel Addresses <span style="font-weight:400;color:var(--tx3)">(comma-separated host:port)</span></label>
+            <input x-model="f.sentinel_addrs_str" placeholder="sentinel1:26379, sentinel2:26379, sentinel3:26379" class="mono" style="font-size:11.5px"/>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Sentinel Password <span style="font-weight:400;color:var(--tx3)">(optional — only if sentinels require auth)</span></label>
+            <input type="password" x-model="f.sentinel_password" placeholder="leave blank if not required"/>
+          </div>
+        </div>
         <div class="fr">
-          <div class="fg"><label>Target Database</label><input x-model="f.target_database" placeholder="mydb"/></div>
+          <div class="fg" x-show="f.db_type !== 'redis_sentinel'"><label>Target Database</label><input x-model="f.target_database" placeholder="mydb"/></div>
+          <div class="fg" x-show="f.db_type==='redis_sentinel'">
+            <label>Target DB Index <span style="font-weight:400;color:var(--tx3)">(optional — leave blank for all)</span></label>
+            <input x-model="f.target_database" placeholder="0"/>
+          </div>
           <div class="fg" x-show="f.db_type==='mongodb'">
             <label>Target Collection</label>
             <input x-model="f.target_collection" placeholder="all collections"/>
@@ -140,19 +161,41 @@
 
 <script>
 function srcPage() {
-  const blank={name:'',db_type:'postgresql',connection_mode:'uri',uri:'',credential_profile_id:'none',host:'',port:'',target_database:'',target_collection:''};
+  const blank={name:'',db_type:'postgresql',connection_mode:'uri',uri:'',credential_profile_id:'none',host:'',port:'',target_database:'',target_collection:'',sentinel_master_name:'',sentinel_addrs_str:'',sentinel_password:''};
   return {
     modal:false,busy:false,testing:false,err:'',editId:null,testRes:null,
     f:{...blank},
     openNew(){this.f={...blank};this.editId=null;this.err='';this.testRes=null;this.modal=true;},
-    openEdit(item){this.f={...item,port:item.port||'',credential_profile_id:item.credential_profile_id||'none'};this.editId=item.id;this.err='';this.testRes=null;this.modal=true;},
-    uriPlaceholder(){return{redis:'redis://host:6379',mongodb:'mongodb://host:27017/db',postgresql:'postgresql://user:pass@host:5432/db',mysql:'user:pass@tcp(host:3306)/db'}[this.f.db_type]||'';},
+    openEdit(item){
+      this.f={
+        ...item,
+        port:item.port||'',
+        credential_profile_id:item.credential_profile_id||'none',
+        sentinel_addrs_str:(item.sentinel_addrs||[]).join(', '),
+        sentinel_master_name:item.sentinel_master_name||'',
+        sentinel_password:item.sentinel_password||'',
+      };
+      this.editId=item.id;this.err='';this.testRes=null;this.modal=true;
+    },
+    uriPlaceholder(){return{redis:'redis://host:6379',redis_sentinel:'redis-sentinel://redispass@sentinel1:26379,sentinel2:26379/mymaster',mongodb:'mongodb://host:27017/db',postgresql:'postgresql://user:pass@host:5432/db',mysql:'user:pass@tcp(host:3306)/db'}[this.f.db_type]||'';},
     defPort(){return{redis:6379,mongodb:27017,postgresql:5432,mysql:3306}[this.f.db_type]||'';},
+    buildBody(){
+      const isSentinel=this.f.db_type==='redis_sentinel';
+      const body={
+        ...this.f,
+        port:this.f.port?parseInt(this.f.port):undefined,
+        sentinel_addrs:isSentinel?(this.f.sentinel_addrs_str||'').split(',').map(s=>s.trim()).filter(Boolean):undefined,
+      };
+      delete body.sentinel_addrs_str;
+      return body;
+    },
     async save(){
       if(!this.f.name.trim()){this.err='Name required';return;}
+      if(this.f.db_type==='redis_sentinel'&&this.f.connection_mode==='profile'&&!this.f.sentinel_master_name.trim()){this.err='Sentinel master name required';return;}
+      if(this.f.db_type==='redis_sentinel'&&this.f.connection_mode==='profile'&&!this.f.sentinel_addrs_str.trim()){this.err='At least one sentinel address required';return;}
       this.busy=true;this.err='';
       try{
-        const body={...this.f,port:this.f.port?parseInt(this.f.port):undefined};
+        const body=this.buildBody();
         if(this.editId) await apiFetch(`/sources/${this.editId}`,{method:'PUT',body:{...body,id:this.editId}});
         else            await apiFetch('/sources',{method:'POST',body});
         this.modal=false;
@@ -162,8 +205,7 @@ function srcPage() {
     async testConn(){
       this.testing=true;this.testRes=null;
       try{
-        // Always test current form values so changing the URL is tested immediately
-        const body={...this.f,port:this.f.port?parseInt(this.f.port):undefined};
+        const body=this.buildBody();
         const r=await apiFetch('/sources/test',{method:'POST',body});
         this.testRes={ok:r.status==='ok',msg:r.message||r.detail};
       }catch(e){this.testRes={ok:false,msg:e.message};}finally{this.testing=false;}
