@@ -1,6 +1,0 @@
-projectKey=demo
-serverUrl=http://216.48.185.215:9000
-serverVersion=10.4.1.88267
-dashboardUrl=http://216.48.185.215:9000/dashboard?id=demo
-ceTaskId=317d822d-6c2c-47ff-a1cd-ff13f6e69e9d
-ceTaskUrl=http://216.48.185.215:9000/api/ce/task?id=317d822d-6c2c-47ff-a1cd-ff13f6e69e9d
