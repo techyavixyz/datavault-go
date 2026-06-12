@@ -250,22 +250,24 @@ type NotificationChannel struct {
 // ── Restore ───────────────────────────────────────────────────────────────────
 
 type RestoreRequest struct {
-	BackupID       string `json:"backup_id"`
-	TargetSourceID string `json:"target_source_id"`
-	TmpDir         string `json:"tmp_dir,omitempty"` // override scratch directory for this job
+	BackupID           string `json:"backup_id"`
+	TargetSourceID     string `json:"target_source_id"`
+	TmpDir             string `json:"tmp_dir,omitempty"`
+	FlushBeforeRestore bool   `json:"flush_before_restore,omitempty"`
 }
 
 type RestoreRecord struct {
-	ID               string       `json:"id"`
-	BackupID         string       `json:"backup_id"`
-	BackupFileName   string       `json:"backup_file_name,omitempty"`
-	DBType           DatabaseType `json:"db_type,omitempty"`
-	TargetSourceID   string       `json:"target_source_id"`
-	TargetSourceName string       `json:"target_source_name"`
-	TmpDir           string       `json:"tmp_dir,omitempty"`
-	Status           string       `json:"status"`
-	Error            string       `json:"error,omitempty"`
-	Log              []string     `json:"log"`
-	StartedAt        time.Time    `json:"started_at"`
-	FinishedAt       *time.Time   `json:"finished_at,omitempty"`
+	ID                 string       `json:"id"`
+	BackupID           string       `json:"backup_id"`
+	BackupFileName     string       `json:"backup_file_name,omitempty"`
+	DBType             DatabaseType `json:"db_type,omitempty"`
+	TargetSourceID     string       `json:"target_source_id"`
+	TargetSourceName   string       `json:"target_source_name"`
+	TmpDir             string       `json:"tmp_dir,omitempty"`
+	FlushBeforeRestore bool         `json:"flush_before_restore,omitempty"`
+	Status             string       `json:"status"`
+	Error              string       `json:"error,omitempty"`
+	Log                []string     `json:"log"`
+	StartedAt          time.Time    `json:"started_at"`
+	FinishedAt         *time.Time   `json:"finished_at,omitempty"`
 }

@@ -47,7 +47,10 @@ func (h *RestoreHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "restore target not found"})
 		return
 	}
-	if backup.DBType != src.DBType {
+	redisFamily := func(t models.DatabaseType) bool {
+		return t == models.DBRedis || t == models.DBRedisSentinel
+	}
+	if backup.DBType != src.DBType && !(redisFamily(backup.DBType) && redisFamily(src.DBType)) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"detail": fmt.Sprintf("type mismatch: backup is %s but restore target is %s — cannot restore across database types", backup.DBType, src.DBType),
 		})
@@ -77,16 +80,17 @@ func (h *RestoreHandler) Create(c *gin.Context) {
 	}
 
 	rec := models.RestoreRecord{
-		ID:               uuid.New().String(),
-		BackupID:         backup.ID,
-		BackupFileName:   backup.FileName,
-		DBType:           backup.DBType,
-		TargetSourceID:   src.ID,
-		TargetSourceName: src.Name,
-		TmpDir:           req.TmpDir,
-		Status:           "pending",
-		Log:              []string{},
-		StartedAt:        time.Now().UTC(),
+		ID:                 uuid.New().String(),
+		BackupID:           backup.ID,
+		BackupFileName:     backup.FileName,
+		DBType:             backup.DBType,
+		TargetSourceID:     src.ID,
+		TargetSourceName:   src.Name,
+		TmpDir:             req.TmpDir,
+		FlushBeforeRestore: req.FlushBeforeRestore,
+		Status:             "pending",
+		Log:                []string{},
+		StartedAt:          time.Now().UTC(),
 	}
 	h.Store.Upsert(store.TableRestores, rec.ID, rec)
 

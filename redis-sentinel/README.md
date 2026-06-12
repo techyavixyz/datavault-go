@@ -225,3 +225,5 @@ Sentinel hasn't reached quorum yet. Wait 5–10 seconds after startup and retry.
 **RDB backup fails: "PSYNC returned empty response"**
 
 DataVault is connecting to the sentinel port (26379) instead of the master port (6379). Check that the URI format is correct — the sentinel URI should point to sentinel addresses, DataVault resolves the master internally.
+
+

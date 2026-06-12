@@ -225,7 +225,7 @@ func runRestore(rec *models.RestoreRecord, backup *models.BackupRecord,
 	if isRDB {
 		rdbPath := filepath.Join(tmpDir, "dump.rdb")
 		logf("Restoring RDB snapshot into %s...", src.Name)
-		return restoreRedisRDB(ctx, uri, rdbPath, logf)
+		return restoreRedisRDB(ctx, uri, rdbPath, rec.FlushBeforeRestore, logf)
 	}
 
 	if src.DBType == models.DBMongoDB {
@@ -354,12 +354,32 @@ func extractTarEntry(archivePath, entryName, destPath string, compressed bool) e
 }
 
 // restoreRedisRDB parses an RDB binary file and replays all keys into Redis.
-func restoreRedisRDB(ctx context.Context, uri, rdbPath string, logf func(string, ...any)) error {
-	rdb, err := newRedisClient(uri)
+// Keys are written in pipelined batches of 500 per round-trip.
+// If flushBefore is true, FLUSHALL is issued before replay for exact snapshot fidelity.
+func restoreRedisRDB(ctx context.Context, uri, rdbPath string, flushBefore bool, logf func(string, ...any)) error {
+	if strings.HasPrefix(uri, "redis-sentinel://") {
+		logf("Connecting via Sentinel — discovering current master...")
+	} else {
+		logf("Connecting via direct Redis URL...")
+	}
+	client, err := newRedisClient(uri)
 	if err != nil {
 		return err
 	}
-	defer rdb.Close()
+	defer client.Close()
+
+	// Pin a single dedicated connection so SELECT and pipeline state are
+	// guaranteed to stay on the same TCP connection throughout the restore.
+	conn := client.Conn()
+	defer conn.Close()
+
+	if flushBefore {
+		logf("Flushing all databases before restore (flush_before_restore=true)...")
+		if err := conn.FlushAll(ctx).Err(); err != nil {
+			return fmt.Errorf("FLUSHALL: %w", err)
+		}
+		logf("Flush complete")
+	}
 
 	f, err := os.Open(rdbPath)
 	if err != nil {
@@ -367,19 +387,40 @@ func restoreRedisRDB(ctx context.Context, uri, rdbPath string, logf func(string,
 	}
 	defer f.Close()
 
+	const batchSize = 500
+
+	pipe := conn.Pipeline()
 	currentDB := -1
+	keysInBatch := 0
 	count := 0
 	var parseErr error
+
+	// flushBatch sends all buffered pipeline commands in one round-trip.
+	// On DB change we flush first so the SELECT runs on a clean boundary.
+	flushBatch := func() {
+		if keysInBatch == 0 {
+			return
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			logf("Warning: pipeline batch error: %v", err)
+		}
+		pipe = conn.Pipeline()
+		keysInBatch = 0
+	}
 
 	dec := rdbcore.NewDecoder(f)
 	err = dec.Parse(func(obj rdbmodel.RedisObject) bool {
 		db := obj.GetDBIndex()
 		if db != currentDB {
-			if e := rdb.Do(ctx, "SELECT", db).Err(); e != nil {
+			// Flush pending batch before switching databases so that all
+			// previous writes land in the correct DB before SELECT changes it.
+			flushBatch()
+			if e := conn.Select(ctx, db).Err(); e != nil {
 				parseErr = fmt.Errorf("SELECT %d: %w", db, e)
 				return false
 			}
 			currentDB = db
+			logf("Restoring db%d...", db)
 		}
 
 		key := obj.GetKey()
@@ -387,55 +428,64 @@ func restoreRedisRDB(ctx context.Context, uri, rdbPath string, logf func(string,
 
 		switch o := obj.(type) {
 		case *rdbmodel.StringObject:
-			rdb.Set(ctx, key, o.Value, 0)
+			pipe.Set(ctx, key, o.Value, 0)
 		case *rdbmodel.ListObject:
-			rdb.Del(ctx, key)
+			pipe.Del(ctx, key)
 			if len(o.Values) > 0 {
 				vals := make([]any, len(o.Values))
 				for i, v := range o.Values {
 					vals[i] = v
 				}
-				rdb.RPush(ctx, key, vals...)
+				pipe.RPush(ctx, key, vals...)
 			}
 		case *rdbmodel.SetObject:
-			rdb.Del(ctx, key)
+			pipe.Del(ctx, key)
 			if len(o.Members) > 0 {
 				vals := make([]any, len(o.Members))
 				for i, v := range o.Members {
 					vals[i] = v
 				}
-				rdb.SAdd(ctx, key, vals...)
+				pipe.SAdd(ctx, key, vals...)
 			}
 		case *rdbmodel.HashObject:
-			rdb.Del(ctx, key)
+			pipe.Del(ctx, key)
 			if len(o.Hash) > 0 {
 				pairs := make([]any, 0, len(o.Hash)*2)
 				for k, v := range o.Hash {
 					pairs = append(pairs, k, v)
 				}
-				rdb.HSet(ctx, key, pairs...)
+				pipe.HSet(ctx, key, pairs...)
 			}
 		case *rdbmodel.ZSetObject:
-			rdb.Del(ctx, key)
+			pipe.Del(ctx, key)
 			if len(o.Entries) > 0 {
 				members := make([]goredis.Z, len(o.Entries))
 				for i, e := range o.Entries {
 					members[i] = goredis.Z{Score: e.Score, Member: e.Member}
 				}
-				rdb.ZAdd(ctx, key, members...)
+				pipe.ZAdd(ctx, key, members...)
 			}
 		}
 
 		if exp != nil && exp.After(time.Now()) {
-			rdb.ExpireAt(ctx, key, *exp)
+			pipe.ExpireAt(ctx, key, *exp)
 		}
 
 		count++
-		if count%500 == 0 {
+		keysInBatch++
+		if keysInBatch >= batchSize {
+			flushBatch()
+		}
+		if count%5000 == 0 {
 			logf("  %d keys restored...", count)
 		}
 		return true
 	})
+
+	// Flush any keys buffered in the final partial batch.
+	if parseErr == nil {
+		flushBatch()
+	}
 
 	if parseErr != nil {
 		return parseErr
