@@ -64,7 +64,11 @@ func (s *Store) flush() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path, raw, 0644)
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.path)
 }
 
 // Upsert inserts or replaces a record by id.

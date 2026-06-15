@@ -86,7 +86,6 @@ func RunBackup(rec *models.BackupRecord, src *models.DatabaseSource,
 			time.Now().UTC().Format("2006-01-02 15:04:05"),
 			fmt.Sprintf(format, args...))
 		rec.Log = append(rec.Log, line)
-		save()
 	}
 
 	rec.Status = "running"
